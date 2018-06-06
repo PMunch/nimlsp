@@ -16,6 +16,27 @@ team effort, so help out in any way you can. If you need pointers look at the
 issues board for something that needs doing, or create your own issues if you
 feel something needs to be done or discussed.
 
+Supported Protocol features
+=======
+
+- [ ] textDocument/didChange (incremental)
+- [ ] textDocument/didClose
+- [ ] textDocument/didOpen
+- [ ] textDocument/didSave
+
+- [ ] textDocument/codeAction
+- [ ] textDocument/completion (incl. completion/resolve)
+- [ ] textDocument/definition
+- [ ] textDocument/documentHighlight
+- [ ] textDocument/documentSymbol
+- [ ] textDocument/executeCommand
+- [ ] textDocument/format
+- [ ] textDocument/hover
+- [ ] textDocument/rename
+- [ ] textDocument/references
+- [ ] textDocument/signatureHelp
+- [ ] workspace/symbol
+
 Run Tests
 =========
 
