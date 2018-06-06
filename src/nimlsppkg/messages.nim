@@ -1,16 +1,16 @@
 import packedjson
 
 type
-  ResponseError = distinct JsonNode
-  MessageKind = enum
+  ResponseError* = distinct JsonNode
+  MessageKind* = enum
     Notification, Request
-  Message = object
+  Message* = object
     case kind*: MessageKind:
       of Notification: notification: JsonNode
       of Request: request: JsonNode
   NotificationMessage = distinct JsonNode
   ResponseMessage = distinct JsonNode
-  ErrorCode = enum
+  ErrorCode* = enum
     RequestCancelled = -32800 # All the other error codes are from JSON-RPC
     ParseError = -32700,
     InternalError = -32603,
@@ -21,7 +21,7 @@ type
     ServerNotInitialized = -32002,
     ServerErrorEnd = -32000,
 
-proc createResponse(id: int, res: JsonNode = newJNull(), error: ResponseError = newJNull().ResponseError): JsonTree =
+proc createResponse*(id: int, res: JsonNode = newJNull(), error: ResponseError = newJNull().ResponseError): JsonTree =
   result = %*{
     "id": id
   }
@@ -30,7 +30,7 @@ proc createResponse(id: int, res: JsonNode = newJNull(), error: ResponseError = 
   if error.JsonNode.kind != JNull:
     result["error"] = error.JsonNode
 
-proc createError(code: ErrorCode, message: string, data: JsonNode = newJNull()): ResponseError =
+proc createError*(code: ErrorCode, message: string, data: JsonNode = newJNull()): ResponseError =
   result = ResponseError(%*{
     "code": ord code,
     "message": message
@@ -38,7 +38,7 @@ proc createError(code: ErrorCode, message: string, data: JsonNode = newJNull()):
   if data.kind != JNull:
     result.JsonTree["data"] = data
 
-proc readMessage(json: string): Message =
+proc readMessage*(json: string): Message =
   var parsedJson = parseJson(json)
   doAssert parsedJson.hasKey("jsonrpc"), "JSON is missing jsonrpc key"
   doAssert parsedJson["jsonrpc"].getStr == "2.0", "Wrong JSON-RPC version"
@@ -57,12 +57,3 @@ proc readMessage(json: string): Message =
     return Message(kind: Notification, notification: parsedJson)
 
 
-
-echo createResponse(100, error = createError(ParseError, "Hello world"))
-echo readMessage("""
-{
-  "jsonrpc": "2.0",
-  "id": 100,
-  "method": "something",
-}
-""")
