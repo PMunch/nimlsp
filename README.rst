@@ -19,13 +19,13 @@ feel something needs to be done or discussed.
 Supported Protocol features
 =======
 
-- [TODO] textDocument/didChange (incremental)
+- [TODO] textDocument/didChange
 - [TODO] textDocument/didClose
 - [TODO] textDocument/didOpen
 - [TODO] textDocument/didSave
 
 - [TODO] textDocument/codeAction
-- [TODO] textDocument/completion (incl. completion/resolve)
+- [TODO] textDocument/completion
 - [TODO] textDocument/definition
 - [TODO] textDocument/documentHighlight
 - [TODO] textDocument/documentSymbol
