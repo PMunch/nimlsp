@@ -19,23 +19,23 @@ feel something needs to be done or discussed.
 Supported Protocol features
 =======
 
-- [ ] textDocument/didChange (incremental)
-- [ ] textDocument/didClose
-- [ ] textDocument/didOpen
-- [ ] textDocument/didSave
+- [TODO] textDocument/didChange (incremental)
+- [TODO] textDocument/didClose
+- [TODO] textDocument/didOpen
+- [TODO] textDocument/didSave
 
-- [ ] textDocument/codeAction
-- [ ] textDocument/completion (incl. completion/resolve)
-- [ ] textDocument/definition
-- [ ] textDocument/documentHighlight
-- [ ] textDocument/documentSymbol
-- [ ] textDocument/executeCommand
-- [ ] textDocument/format
-- [ ] textDocument/hover
-- [ ] textDocument/rename
-- [ ] textDocument/references
-- [ ] textDocument/signatureHelp
-- [ ] workspace/symbol
+- [TODO] textDocument/codeAction
+- [TODO] textDocument/completion (incl. completion/resolve)
+- [TODO] textDocument/definition
+- [TODO] textDocument/documentHighlight
+- [TODO] textDocument/documentSymbol
+- [TODO] textDocument/executeCommand
+- [TODO] textDocument/format
+- [TODO] textDocument/hover
+- [TODO] textDocument/rename
+- [TODO] textDocument/references
+- [TODO] textDocument/signatureHelp
+- [TODO] workspace/symbol
 
 Run Tests
 =========
