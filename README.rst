@@ -14,4 +14,5 @@ Run Tests
 =========
 
 .. code:: bash
+
     nimble test
