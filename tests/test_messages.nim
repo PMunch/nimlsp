@@ -9,7 +9,7 @@ suite "createError()":
         let error = JsonNode(createError(ParseError, message))
         check(getInt(error["code"]) == ord(ParseError))
         check(getStr(error["message"]) == message)
-   
+
 suite "createResponse()":
     test "Generate a response":
         let res = createResponse(100, %*{ "result": "Success" })

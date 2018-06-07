@@ -1,8 +1,8 @@
 # Package
 
 version       = "0.1.0"
-author        = "pmunch"
-description   = "Nim Language Server Protocol - nimlsp implements Language Server Protocol"
+author        = "PMunch"
+description   = "Nim Language Server Protocol - nimlsp implements the Language Server Protocol"
 license       = "MIT"
 srcDir        = "src"
 bin           = @["nimlsp"]
@@ -11,6 +11,7 @@ bin           = @["nimlsp"]
 
 requires "nim >= 0.18.1"
 requires "packedjson"
+requires "astpatternmatching"
 
 # nimble test does not work for me out of the box
 task test, "Runs the test suite":
