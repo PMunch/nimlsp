@@ -293,6 +293,7 @@ macro jsonSchema*(pattern: untyped): untyped =
         createArgs[t.name].insert(1, createArgs[t.extends][i])
       creatorBodies[t.name].insert(0, creatorBodies[t.extends])
 
+  var forwardDecls = newStmtList()
   var validators = newStmtList()
   for kind, body in validationBodies.pairs:
     let kindIdent = newIdentNode(kind)
@@ -303,6 +304,9 @@ macro jsonSchema*(pattern: untyped): untyped =
         `body`
         if `fields` != `data`.len: return false
         return true
+    forwardDecls.add quote do:
+      proc isValid(`data`: JsonNode, kind: typedesc[`kindIdent`],
+        `traverse` = true): bool
   var creators = newStmtList()
   for t in types:
     let
@@ -324,9 +328,14 @@ macro jsonSchema*(pattern: untyped): untyped =
         return `ret`.`kindIdent`
     createProc[3] = creatorArgs
     creators.add createProc
+    var forwardCreateProc = quote do:
+      proc create()
+    forwardCreateProc[3] = creatorArgs
+    forwardDecls.add forwardCreateProc
 
   result = quote do:
     `typeDefinitions`
+    `forwardDecls`
     `validators`
     `creators`
   echo result.repr
