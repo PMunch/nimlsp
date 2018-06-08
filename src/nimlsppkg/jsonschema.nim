@@ -244,29 +244,28 @@ macro jsonSchema*(pattern: untyped): untyped =
         )
         checks = checks[2..^1]
         checks.insert(newFirst)
+      if field.optional:
+        argumentChoices[0] = nnkBracketExpr.newTree(
+            newIdentNode("Option"),
+            argumentChoices[0]
+          )
       while argumentChoices.len != 1:
         let newFirst = nnkInfix.newTree(
           newIdentNode("or"),
           argumentChoices[0],
-          argumentChoices[1]
+          if not field.optional: argumentChoices[1]
+          else: nnkBracketExpr.newTree(
+            newIdentNode("Option"),
+            argumentChoices[1]
+          )
         )
         argumentChoices = argumentChoices[2..^1]
         argumentChoices.insert(newFirst)
-      if field.optional:
-        createArgs[t.name].add nnkIdentDefs.newTree(
-          aname,
-          nnkBracketExpr.newTree(
-            newIdentNode("Option"),
-            argumentChoices[0]
-          ),
-          newEmptyNode()
-        )
-      else:
-        createArgs[t.name].add nnkIdentDefs.newTree(
-          aname,
-          argumentChoices[0],
-          newEmptyNode()
-        )
+      createArgs[t.name].add nnkIdentDefs.newTree(
+        aname,
+        argumentChoices[0],
+        newEmptyNode()
+      )
       let check = checks[0]
       if field.optional:
         validations.add quote do:
@@ -343,7 +342,7 @@ macro jsonSchema*(pattern: untyped): untyped =
 when isMainModule:
   jsonSchema:
     CancelParams:
-      id: int or string or float
+      id?: int or string or float
       something?: float
 
     WrapsCancelParams:
@@ -360,17 +359,17 @@ when isMainModule:
       john?: int or nil
 
   var wcp = create(WrapsCancelParams,
-    create(CancelParams, 10, none(float)), "Hello"
+    create(CancelParams, some(10), none(float)), "Hello"
   )
   echo wcp.JsonNode.isValid(WrapsCancelParams) == true
   wcp.JsonNode["cp"] = %*{"notcancelparams": true}
   echo wcp.JsonNode.isValid(WrapsCancelParams) == false
   echo wcp.JsonNode.isValid(WrapsCancelParams, false) == true
-  var ecp = create(ExtendsCancelParams, 10, some(5.3), "Hello")
+  var ecp = create(ExtendsCancelParams, some(10), some(5.3), "Hello")
   echo ecp.JsonNode.isValid(ExtendsCancelParams) == true
   var war = create(WithArrayAndAny, some(@[
-    create(CancelParams, 10, some(1.0)),
-    create(CancelParams, 100, none(float))
+    create(CancelParams, some(10), some(1.0)),
+    create(CancelParams, some("hello"), none(float))
   ]), 2.0, %*{"hello": "world"}, none(NilType))
   echo war.JsonNode.isValid(WithArrayAndAny) == true
 
