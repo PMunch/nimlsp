@@ -297,14 +297,14 @@ macro jsonSchema*(pattern: untyped): untyped =
   for kind, body in validationBodies.pairs:
     let kindIdent = newIdentNode(kind)
     validators.add quote do:
-      proc isValid(`data`: JsonNode, kind: typedesc[`kindIdent`],
+      proc isValid(`data`: JsonNode, schemaType: typedesc[`kindIdent`],
         `traverse` = true): bool =
         if `data`.kind != JObject: return false
         `body`
         if `fields` != `data`.len: return false
         return true
     forwardDecls.add quote do:
-      proc isValid(`data`: JsonNode, kind: typedesc[`kindIdent`],
+      proc isValid(`data`: JsonNode, schemaType: typedesc[`kindIdent`],
         `traverse` = true): bool
   var creators = newStmtList()
   for t in types:
@@ -313,7 +313,7 @@ macro jsonSchema*(pattern: untyped): untyped =
       kindIdent = newIdentNode(t.name)
     var creatorArgs = createArgs[t.name]
     creatorArgs.insert(1, nnkIdentDefs.newTree(
-      newIdentNode("kind"),
+      newIdentNode("schemaType"),
       nnkBracketExpr.newTree(
         newIdentNode("typedesc"),
         kindIdent
