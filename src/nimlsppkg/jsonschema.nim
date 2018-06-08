@@ -17,7 +17,12 @@ proc extractKinds(node: NimNode): seq[tuple[name: string, isArray: bool]] =
   else:
     raise newException(AssertionError, "Unknown node kind: " & $node.kind)
 
-proc matchDefinition(pattern: NimNode): tuple[name: string, kinds: seq[tuple[name: string, isArray: bool]], optional: bool] {.compileTime.} =
+proc matchDefinition(pattern: NimNode):
+  tuple[
+    name: string,
+    kinds: seq[tuple[name: string, isArray: bool]],
+    optional: bool
+  ] {.compileTime.} =
   matchAst(pattern):
   of nnkCall(
     `name` @ nnkIdent,
@@ -33,13 +38,42 @@ proc matchDefinition(pattern: NimNode): tuple[name: string, kinds: seq[tuple[nam
   ):
     return (name: $name, kinds: kind.extractKinds, optional: true)
 
-proc matchDefinitions(definitions: NimNode): seq[tuple[name: string, kinds: seq[tuple[name: string, isArray: bool]], optional: bool]] {.compileTime.} =
+proc matchDefinitions(definitions: NimNode):
+  seq[
+    tuple[
+      name: string,
+      kinds: seq[
+        tuple[
+          name: string,
+          isArray: bool
+        ]
+      ],
+      optional: bool
+    ]
+  ] {.compileTime.} =
   result = @[]
   for definition in definitions:
     result.add matchDefinition(definition)
 
 macro jsonSchema*(pattern: untyped): untyped =
-  var types: seq[tuple[name: string, extends: string, definitions: seq[tuple[name: string, kinds: seq[tuple[name: string, isArray: bool]], optional: bool]]]] = @[]
+  var types: seq[
+    tuple[
+      name: string,
+      extends: string,
+      definitions:seq[
+        tuple[
+          name: string,
+          kinds: seq[
+            tuple[
+              name: string,
+              isArray: bool
+            ]
+          ],
+          optional: bool
+        ]
+      ]
+    ]
+  ] = @[]
   for part in pattern:
     matchAst(part):
     of nnkCall(
@@ -93,10 +127,14 @@ macro jsonSchema*(pattern: untyped): untyped =
           tKind = if kind.name == "any":
               newIdentNode("JsonNode")
             elif kind.isArray:
-              nnkBracketExpr.newTree(newIdentNode("seq"), newIdentNode(kind.name))
+              nnkBracketExpr.newTree(
+                newIdentNode("seq"),
+                newIdentNode(kind.name)
+              )
             else:
               newIdentNode(kind.name)
-          isBaseType = kind.name.toLowerASCII in ["int", "string", "float", "bool"]
+          isBaseType = kind.name.toLowerASCII in
+            ["int", "string", "float", "bool"]
         if kind.isArray:
           if argumentChoices.len == 0:
             argumentChoices.add tkind
@@ -121,7 +159,8 @@ macro jsonSchema*(pattern: untyped): untyped =
           let kindNode = newIdentNode(kind.name)
           if kind.isArray:
             checks.add quote do:
-              `cname`.kind != JArray or (`traverse` and not `cname`.allIt(it.isValid(`kindNode`)))
+              `cname`.kind != JArray or
+                (`traverse` and not `cname`.allIt(it.isValid(`kindNode`)))
           else:
             checks.add quote do:
               (`traverse` and not `cname`.isValid(`kindNode`))
@@ -170,17 +209,36 @@ macro jsonSchema*(pattern: untyped): untyped =
               when `aname` is `tkind`:
                 `ret`[`fname`] = `accs`
       while checks.len != 1:
-        let newFirst = nnkInfix.newTree(newIdentNode("and"), checks[0], checks[1])
+        let newFirst = nnkInfix.newTree(
+          newIdentNode("and"),
+          checks[0],
+          checks[1]
+        )
         checks = checks[2..^1]
         checks.insert(newFirst)
       while argumentChoices.len != 1:
-        let newFirst = nnkInfix.newTree(newIdentNode("or"), argumentChoices[0], argumentChoices[1])
+        let newFirst = nnkInfix.newTree(
+          newIdentNode("or"),
+          argumentChoices[0],
+          argumentChoices[1]
+        )
         argumentChoices = argumentChoices[2..^1]
         argumentChoices.insert(newFirst)
       if field.optional:
-        createArgs[t.name].add nnkIdentDefs.newTree(aname, nnkBracketExpr.newTree(newIdentNode("Option"), argumentChoices[0]), newEmptyNode())
+        createArgs[t.name].add nnkIdentDefs.newTree(
+          aname,
+          nnkBracketExpr.newTree(
+            newIdentNode("Option"),
+            argumentChoices[0]
+          ),
+          newEmptyNode()
+        )
       else:
-        createArgs[t.name].add nnkIdentDefs.newTree(aname, argumentChoices[0], newEmptyNode())
+        createArgs[t.name].add nnkIdentDefs.newTree(
+          aname,
+          argumentChoices[0],
+          newEmptyNode()
+        )
       let check = checks[0]
       if field.optional:
         validations.add quote do:
@@ -211,7 +269,8 @@ macro jsonSchema*(pattern: untyped): untyped =
   for kind, body in validationBodies.pairs:
     let kindIdent = newIdentNode(kind)
     validators.add quote do:
-      proc isValid(`data`: JsonNode, kind: typedesc[`kindIdent`], `traverse` = true): bool =
+      proc isValid(`data`: JsonNode, kind: typedesc[`kindIdent`],
+        `traverse` = true): bool =
         if `data`.kind != JObject: return false
         `body`
         if `fields` != `data`.len: return false
@@ -222,7 +281,14 @@ macro jsonSchema*(pattern: untyped): untyped =
       creatorBody = creatorBodies[t.name]
       kindIdent = newIdentNode(t.name)
     var creatorArgs = createArgs[t.name]
-    creatorArgs.insert(1, nnkIdentDefs.newTree(newIdentNode("kind"), nnkBracketExpr.newTree(newIdentNode("typedesc"), kindIdent), newEmptyNode()))
+    creatorArgs.insert(1, nnkIdentDefs.newTree(
+      newIdentNode("kind"),
+      nnkBracketExpr.newTree(
+        newIdentNode("typedesc"),
+        kindIdent
+      ),
+      newEmptyNode()
+    ))
     var createProc = quote do:
       proc create() =
         var `ret` = newJObject()
@@ -255,14 +321,18 @@ when isMainModule:
       ralph: int[] or float
       bob: any
 
-  var wcp = create(WrapsCancelParams, create(CancelParams, 10, none(float)), "Hello")
+  var wcp = create(WrapsCancelParams,
+    create(CancelParams, 10, none(float)), "Hello"
+  )
   echo wcp.JsonNode.isValid(WrapsCancelParams) == true
   wcp.JsonNode["cp"] = %*{"notcancelparams": true}
   echo wcp.JsonNode.isValid(WrapsCancelParams) == false
   echo wcp.JsonNode.isValid(WrapsCancelParams, false) == true
   var ecp = create(ExtendsCancelParams, 10, some(5.3), "Hello")
   echo ecp.JsonNode.isValid(ExtendsCancelParams) == true
-  var war = create(WithArrayAndAny, some(@[create(CancelParams, 10, some(1.0)), create(CancelParams, 100, none(float))]), 2.0, %*{"hello": "world"})
+  var war = create(WithArrayAndAny, some(@[
+    create(CancelParams, 10, some(1.0)),
+    create(CancelParams, 100, none(float))
+  ]), 2.0, %*{"hello": "world"})
   echo war.JsonNode.isValid(WithArrayAndAny) == true
-
 
