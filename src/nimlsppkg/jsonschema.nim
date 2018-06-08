@@ -131,7 +131,13 @@ macro jsonSchema*(pattern: untyped): untyped =
       for kind in field.kinds:
         let
           tKind = if kind.name == "any":
-              newIdentNode("JsonNode")
+              if kind.isArray:
+                nnkBracketExpr.newTree(
+                  newIdentNode("seq"),
+                  newIdentNode("JsonNode")
+                )
+              else:
+                newIdentNode("JsonNode")
             elif kind.isArray:
               nnkBracketExpr.newTree(
                 newIdentNode("seq"),
