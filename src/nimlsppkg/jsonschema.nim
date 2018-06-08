@@ -6,6 +6,8 @@ import options
 import strutils
 import tables
 
+type NilType* = enum Nil
+
 proc extractKinds(node: NimNode): seq[tuple[name: string, isArray: bool]] =
   if node.kind == nnkIdent:
     return @[(name: $node, isArray: false)]
@@ -14,6 +16,10 @@ proc extractKinds(node: NimNode): seq[tuple[name: string, isArray: bool]] =
     result.insert(node[1].extractKinds)
   elif node.kind == nnkBracketExpr and node[0].kind == nnkIdent:
     return @[(name: $node[0], isArray: true)]
+  elif node.kind == nnkNilLit:
+    return @[(name: "nil", isArray: false)]
+  elif node.kind == nnkBracketExpr and node[0].kind == nnkNilLit:
+    raise newException(AssertionError, "Array of nils not allowed")
   else:
     raise newException(AssertionError, "Unknown node kind: " & $node.kind)
 
@@ -135,11 +141,14 @@ macro jsonSchema*(pattern: untyped): untyped =
               newIdentNode(kind.name)
           isBaseType = kind.name.toLowerASCII in
             ["int", "string", "float", "bool"]
-        if kind.isArray:
-          if argumentChoices.len == 0:
+        if kind.name != "nil":
+          if kind.isArray:
+            if argumentChoices.len == 0:
+              argumentChoices.add tkind
+          else:
             argumentChoices.add tkind
         else:
-          argumentChoices.add tkind
+          argumentChoices.add newIdentNode("NilType")
         if isBaseType:
           let
             jkind = newIdentNode("J" & kind.name)
@@ -155,6 +164,9 @@ macro jsonSchema*(pattern: untyped): untyped =
               `cname`.kind != JArray
           else:
             checks.add newLit(false)
+        elif kind.name == "nil":
+          checks.add quote do:
+            `cname`.kind != JNull
         else:
           let kindNode = newIdentNode(kind.name)
           if kind.isArray:
@@ -164,7 +176,17 @@ macro jsonSchema*(pattern: untyped): untyped =
           else:
             checks.add quote do:
               (`traverse` and not `cname`.isValid(`kindNode`))
-        if kind.isArray:
+        if kind.name == "nil":
+          if field.optional:
+            creatorBodies[t.name].add quote do:
+              when `aname` is Option[NilType]:
+                if `aname`.isSome:
+                  `ret`[`fname`] = newJNull()
+          else:
+            creatorBodies[t.name].add quote do:
+              when `aname` is NilType:
+                `ret`[`fname`] = newJNull()
+        elif kind.isArray:
           let
             i = newIdentNode("i")
             accs = if isBaseType:
@@ -320,6 +342,7 @@ when isMainModule:
       test?: CancelParams[]
       ralph: int[] or float
       bob: any
+      john?: int or nil
 
   var wcp = create(WrapsCancelParams,
     create(CancelParams, 10, none(float)), "Hello"
@@ -333,6 +356,6 @@ when isMainModule:
   var war = create(WithArrayAndAny, some(@[
     create(CancelParams, 10, some(1.0)),
     create(CancelParams, 100, none(float))
-  ]), 2.0, %*{"hello": "world"})
+  ]), 2.0, %*{"hello": "world"}, none(NilType))
   echo war.JsonNode.isValid(WithArrayAndAny) == true
 
