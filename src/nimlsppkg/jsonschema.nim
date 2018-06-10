@@ -152,6 +152,7 @@ macro jsonSchema*(pattern: untyped): untyped =
     creatorBodies[t.name] = newStmtList()
     typeDefinitions.add quote do:
       type `name` = distinct JsonNode
+      converter toJsonNode(input: `name`): JsonNode = input.JsonNode
 
     var
       requiredFields = 0
@@ -406,15 +407,15 @@ when isMainModule:
   var wcp = create(WrapsCancelParams,
     create(CancelParams, some(10), none(float)), "Hello"
   )
-  echo wcp.JsonNode.isValid(WrapsCancelParams) == true
-  wcp.JsonNode["cp"] = %*{"notcancelparams": true}
-  echo wcp.JsonNode.isValid(WrapsCancelParams) == false
-  echo wcp.JsonNode.isValid(WrapsCancelParams, false) == true
+  echo wcp.isValid(WrapsCancelParams) == true
+  wcp["cp"] = %*{"notcancelparams": true}
+  echo wcp.isValid(WrapsCancelParams) == false
+  echo wcp.isValid(WrapsCancelParams, false) == true
   var ecp = create(ExtendsCancelParams, some(10), some(5.3), "Hello")
-  echo ecp.JsonNode.isValid(ExtendsCancelParams) == true
+  echo ecp.isValid(ExtendsCancelParams) == true
   var war = create(WithArrayAndAny, some(@[
     create(CancelParams, some(10), some(1.0)),
     create(CancelParams, some("hello"), none(float))
   ]), 2.0, %*{"hello": "world"}, none(NilType))
-  echo war.JsonNode.isValid(WithArrayAndAny) == true
+  echo war.isValid(WithArrayAndAny) == true
 
