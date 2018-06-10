@@ -101,7 +101,7 @@ jsonSchema:
 
   RequestMessage extends Message:
     id: int or float or string
-    methodName: string
+    "method": string
     params?: any[] or any
 
   ResponseMessage extends Message:
@@ -115,7 +115,7 @@ jsonSchema:
     data: any
 
   NotificationMessage extends Message:
-    methodName: string
+    "method": string
     params?: any[] or any
 
   CancelParams:
@@ -131,10 +131,10 @@ jsonSchema:
 
   Location:
     documentUri: string # Note that this is not checked
-    theRange: Range
+    "range": Range
 
   Diagnostic:
-    theRange: Range
+    "range": Range
     severity?: int or float
     code?: int or float or string
     source?: string
@@ -151,7 +151,7 @@ jsonSchema:
     arguments?: any[]
 
   TextEdit:
-    theRange: Range
+    "range": Range
     newText: string
 
   TextDocumentEdit:
@@ -416,24 +416,24 @@ jsonSchema:
     DUMMY?: nil # This is actually an empty object
 
   ShowMessageParams:
-    theType: int # MessageType
+    "type": int # MessageType
     message: string
 
   MessageActionItem:
     title: string
 
   ShowMessageRequestParams:
-    theType: int # MessageType
+    "type": int # MessageType
     message: string
     actions?: MessageActionItem[]
 
   LogMessageParams:
-    theType: int # MessageType
+    "type": int # MessageType
     message: string
 
   Registration:
     id: string
-    methodName: string
+    "method": string
     registrationOptions?: any
 
   RegistrationParams:
@@ -441,7 +441,7 @@ jsonSchema:
 
   Unregistration:
     id: string
-    methodName: string
+    "method": string
 
   UnregistrationParams:
     unregistrations: Unregistration[]
@@ -457,7 +457,7 @@ jsonSchema:
     settings: any
 
   ConfigurationParams:
-    theItems: ConfigurationItem[]
+    "items": ConfigurationItem[]
 
   ConfigurationItem:
     scopeUri?: string
@@ -465,7 +465,7 @@ jsonSchema:
 
   FileEvent:
     uri: string # DocumentUri
-    theType: int # FileChangeType
+    "type": int # FileChangeType
 
   DidChangeWatchedFilesParams:
     changes: FileEvent[]
@@ -536,7 +536,7 @@ jsonSchema:
 
   CompletionList:
     isIncomplete: bool
-    theItems: CompletionItem[]
+    "items": CompletionItem[]
 
   CompletionItem:
     label: string
@@ -590,7 +590,7 @@ jsonSchema:
     includeDeclaration: bool
 
   DocumentHighlight:
-    theRange: Range
+    "range": Range
     kind?: int # DocumentHighlightKind
 
   DocumentSymbolParams:
@@ -605,7 +605,7 @@ jsonSchema:
 
   CodeActionParams:
     textDocument: TextDocumentIdentifier
-    theRange: Range
+    "range": Range
     context: CodeActionContext
 
   CodeActionContext:
@@ -615,7 +615,7 @@ jsonSchema:
     textDocument: TextDocumentIdentifier
 
   CodeLens:
-    theRange: Range
+    "range": Range
     command?: Command
     data?: any
 
@@ -626,7 +626,7 @@ jsonSchema:
     textDocument: TextDocumentIdentifier
 
   DocumentLink:
-    theRange: Range
+    "range": Range
     target?: string # DocumentUri
     data?: any
 
@@ -637,7 +637,7 @@ jsonSchema:
     textDocument: TextDocumentIdentifier
 
   ColorInformation:
-    theRange: Range
+    "range": Range
     color: Color
 
   Color:
@@ -649,7 +649,7 @@ jsonSchema:
   ColorPresentationParams:
     textDocument: TextDocumentIdentifier
     color: Color
-    theRange: Range
+    "range": Range
 
   ColorPresentation:
     label: string
@@ -667,7 +667,7 @@ jsonSchema:
 
   DocumentRangeFormattingParams:
     textDocument: TextDocumentIdentifier
-    theRange: Range
+    "range": Range
     options: any # FormattingOptions
 
   DocumentOnTypeFormattingParams:

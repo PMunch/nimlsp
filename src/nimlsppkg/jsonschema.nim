@@ -6,6 +6,8 @@ import options
 import strutils
 import tables
 
+const ManglePrefix {.strdefine.}: string = "the"
+
 type NilType* = enum Nil
 
 proc extractKinds(node: NimNode): seq[tuple[name: string, isArray: bool]] =
@@ -27,7 +29,8 @@ proc matchDefinition(pattern: NimNode):
   tuple[
     name: string,
     kinds: seq[tuple[name: string, isArray: bool]],
-    optional: bool
+    optional: bool,
+    mangle: bool
   ] {.compileTime.} =
   matchAst(pattern):
   of nnkCall(
@@ -36,13 +39,46 @@ proc matchDefinition(pattern: NimNode):
       `kind`
     )
   ):
-    return (name: $name, kinds: kind.extractKinds, optional: false)
+    return (
+      name: $name,
+      kinds: kind.extractKinds,
+      optional: false,
+      mangle: false
+    )
   of nnkInfix(
     ident"?:",
     `name` @ nnkIdent,
     `kind`
   ):
-    return (name: $name, kinds: kind.extractKinds, optional: true)
+    return (
+      name: $name,
+      kinds: kind.extractKinds,
+      optional: true,
+      mangle: false
+    )
+  of nnkCall(
+    `name` @ nnkStrLit,
+    nnkStmtList(
+      `kind`
+    )
+  ):
+    return (
+      name: $name,
+      kinds: kind.extractKinds,
+      optional: false,
+      mangle: true
+    )
+  of nnkInfix(
+    ident"?:",
+    `name` @ nnkStrLit,
+    `kind`
+  ):
+    return (
+      name: $name,
+      kinds: kind.extractKinds,
+      optional: true,
+      mangle: true
+    )
 
 proc matchDefinitions(definitions: NimNode):
   seq[
@@ -54,7 +90,8 @@ proc matchDefinitions(definitions: NimNode):
           isArray: bool
         ]
       ],
-      optional: bool
+      optional: bool,
+      mangle: bool
     ]
   ] {.compileTime.} =
   result = @[]
@@ -75,7 +112,8 @@ macro jsonSchema*(pattern: untyped): untyped =
               isArray: bool
             ]
           ],
-          optional: bool
+          optional: bool,
+          mangle: bool
         ]
       ]
     ]
@@ -122,7 +160,7 @@ macro jsonSchema*(pattern: untyped): untyped =
     for field in t.definitions:
       let
         fname = field.name
-        aname = newIdentNode(field.name)
+        aname = if field.mangle: newIdentNode(ManglePrefix & field.name) else: newIdentNode(field.name)
         cname = quote do:
           `data`[`fname`]
       var
@@ -337,7 +375,8 @@ macro jsonSchema*(pattern: untyped): untyped =
     `forwardDecls`
     `validators`
     `creators`
-  echo result.repr
+  when defined(jsonSchemaDebug):
+    echo result.repr
 
 when isMainModule:
   jsonSchema:
@@ -357,6 +396,12 @@ when isMainModule:
       ralph: int[] or float
       bob: any
       john?: int or nil
+
+    NameTest:
+      "method": string
+      "result": int
+      "if": bool
+      "type": float
 
   var wcp = create(WrapsCancelParams,
     create(CancelParams, some(10), none(float)), "Hello"
