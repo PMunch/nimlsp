@@ -20,7 +20,7 @@ proc extractKinds(node: NimNode): seq[tuple[name: string, isArray: bool]] =
     return @[(name: $node[0], isArray: true)]
   elif node.kind == nnkNilLit:
     return @[(name: "nil", isArray: false)]
-  elif node.kind == nnkBracketExpr and node[0].kind == nnkNilLit:
+  elif (node.kind == nnkBracketExpr or node.kind == nnkCurlyExpr) and node[0].kind == nnkNilLit:
     raise newException(AssertionError, "Array of nils not allowed")
   else:
     raise newException(AssertionError, "Unknown node kind: " & $node.kind)
@@ -99,6 +99,7 @@ proc matchDefinitions(definitions: NimNode):
     result.add matchDefinition(definition)
 
 macro jsonSchema*(pattern: untyped): untyped =
+  echo pattern.treeRepr
   var types: seq[
     tuple[
       name: string,
@@ -403,6 +404,10 @@ when isMainModule:
       "result": int
       "if": bool
       "type": float
+
+    Wee:
+      woo: int{}
+      waa: int[]
 
   var wcp = create(WrapsCancelParams,
     create(CancelParams, some(10), none(float)), "Hello"
