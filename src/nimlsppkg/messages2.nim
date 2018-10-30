@@ -118,7 +118,7 @@ jsonSchema:
 
   ResponseMessage extends Message:
     id: int or float or string or nil
-    res?: any
+    "result"?: any
     error?: ResponseError
 
   ResponseError:
