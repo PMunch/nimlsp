@@ -18,3 +18,6 @@ requires "jsonschema"
 task test, "Runs the test suite":
   #exec "nim c -r tests/test_messages.nim"
   exec "nim c -d:jsonSchemaDebug -r tests/test_messages2.nim"
+
+task build, "Builds the language server":
+  exec "nim c src/nimlsp"
