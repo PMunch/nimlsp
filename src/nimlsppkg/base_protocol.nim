@@ -12,6 +12,9 @@ proc skipWhitespace(x: string, pos: int): int =
     inc result
 
 proc sendFrame*(s: Stream, frame: string) =
+  when defined(debugCommunication):
+    stderr.write(frame)
+    stderr.write("\n")
   s.write "Content-Length: " & $frame.len & "\r\n\r\n" &
                       frame & "\r\n\r\n"
   s.flush
@@ -51,7 +54,13 @@ proc readFrame*(s: Stream): TaintedString =
       continue
     else:
       if contentLen != -1:
-        return s.readStr(contentLen)
+        when defined(debugCommunication):
+          let msg = s.readStr(contentLen)
+          stderr.write(msg)
+          stderr.write("\n")
+          return msg
+        else:
+          return s.readStr(contentLen)
       else:
         raise newException(MalformedFrame, "missing Content-Length header")
 

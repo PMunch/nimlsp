@@ -17,7 +17,7 @@ requires "jsonschema"
 # nimble test does not work for me out of the box
 task test, "Runs the test suite":
   #exec "nim c -r tests/test_messages.nim"
-  exec "nim c -d:jsonSchemaDebug -r tests/test_messages2.nim"
+  exec "nim c -d:debugLogging -d:jsonSchemaDebug -r tests/test_messages2.nim"
 
-task build, "Builds the language server":
-  exec "nim c src/nimlsp"
+task debug, "Builds the language server":
+  exec "nim c -d:debugCommunication -d:debugLogging -o:nimlsp src/nimlsp"
