@@ -1,6 +1,7 @@
 import nimlsppkg / base_protocol
 include nimlsppkg / messages2
 import streams
+import tables
 when defined(debugLogging):
   import strutils
 
@@ -16,6 +17,7 @@ var
   outs = newFileStream(stdout)
   gotShutdown = false
   initialized = false
+  openFiles = initTable[string, seq[tuple[u16pos, offset: int]]]()
 
 template whenValid(data, kind, body) =
   if data.isValid(kind):
@@ -45,8 +47,15 @@ while true:
           gotShutdown = true
         of "initialize":
           debugEcho "Got initialize request, answering"
+          initialized = true
           message.respond(create(InitializeResult, create(ServerCapabilities,
-            textDocumentSync = none(TextDocumentSyncOptions), # ?: TextDocumentSyncOptions or int or float
+            textDocumentSync = some(create(TextDocumentSyncOptions,
+              openClose = some(true),
+              change = some(TextDocumentSyncKind.Full.int),
+              willSave = some(false),
+              willSaveWaitUntil = some(false),
+              save = none(SaveOptions)
+            )), # ?: TextDocumentSyncOptions or int or float
             hoverProvider = none(bool), # ?: bool
             completionProvider = none(CompletionOptions), # ?: CompletionOptions
             signatureHelpProvider = none(SignatureHelpOptions), # ?: SignatureHelpOptions
@@ -73,16 +82,23 @@ while true:
           debugEcho "Unknown request"
       continue
     whenValid(message, NotificationMessage):
+      debugEcho "Got valid Notification message of type " & message["method"].getStr
       if not initialized and message["method"].getStr != "exit":
         continue
       case message["method"].getStr:
         of "exit":
+          debugEcho "Exiting"
           if gotShutdown:
             quit 0
           else:
             quit 1
         of "initialized":
-          initialized = true
+          debugEcho "Properly initialized"
+        of "textDocument/didOpen":
+          if message["params"].isSome:
+            let textDoc = message["params"].unsafeGet
+            whenValid(textDoc, DidOpenTextDocumentParams):
+              debugEcho "New document opened for URI: " & textDoc["textDocument"]["uri"].getStr
         else:
           debugEcho "Got unknown notification message"
       continue
