@@ -185,6 +185,7 @@ jsonSchema:
 
   VersionedTextDocumentIdentifier extends TextDocumentIdentifier:
     version: int or float or nil
+    languageId?: string # SublimeLSP adds this field erroneously
 
   TextDocumentPositionParams:
     textDocument: TextDocumentIdentifier
@@ -556,10 +557,11 @@ jsonSchema:
     detail?: string
     documentation?: string or MarkupContent
     deprecated?: bool
+    preselect?: bool
     sortText?: string
     filterText?: string
     insertText?: string
-    insertTextFormat?: InsertTextFormat
+    insertTextFormat?: int #InsertTextFormat
     textEdit?: TextEdit
     additionalTextEdits?: TextEdit[]
     commitCharacters?: string[]

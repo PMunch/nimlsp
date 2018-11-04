@@ -1,28 +1,49 @@
-import nimlsppkg / base_protocol
+import nimlsppkg / [base_protocol, utfmapping, nimsuggest]
 include nimlsppkg / messages2
 import streams
 import tables
+import strutils
+import os
+import hashes
+
+const storage = "/tmp/nimlsp"
+
+discard existsOrCreateDir(storage)
+
 when defined(debugLogging):
-  import strutils
+  var logFile = open(storage / "nimlsp.log", fmWrite)
 
 template debugEcho(args: varargs[string, `$`]) =
   when defined(debugLogging):
     stderr.write(join args)
     stderr.write("\n")
+    logFile.write(join args)
+    logFile.write("\n\n")
+    logFile.flushFile()
 # Hello Nim!
-debugEcho "Hello, World v4!"
+debugEcho "Started nimlsp with ENV:"
+for ev in envPairs():
+  debugEcho ev.key & ": " & ev.value
+debugEcho "------------------------"
 
 var
   ins = newFileStream(stdin)
   outs = newFileStream(stdout)
   gotShutdown = false
   initialized = false
-  openFiles = initTable[string, seq[tuple[u16pos, offset: int]]]()
+  openFiles = initTable[string, tuple[nimsuggest: Nimsuggest, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
 
 template whenValid(data, kind, body) =
   if data.isValid(kind):
     var data = kind(data)
     body
+
+template whenValid(data, kind, body, elseblock) =
+  if data.isValid(kind):
+    var data = kind(data)
+    body
+  else:
+    elseblock
 
 proc respond(request: RequestMessage, data: JsonNode) =
   outs.sendJson create(ResponseMessage, "2.0", request["id"].getInt, some(data), none(ResponseError)).JsonNode
@@ -57,7 +78,10 @@ while true:
               save = none(SaveOptions)
             )), # ?: TextDocumentSyncOptions or int or float
             hoverProvider = none(bool), # ?: bool
-            completionProvider = none(CompletionOptions), # ?: CompletionOptions
+            completionProvider = some(create(CompletionOptions,
+              resolveProvider = some(true),
+              triggerCharacters = some(@["."])
+            )), # ?: CompletionOptions
             signatureHelpProvider = none(SignatureHelpOptions), # ?: SignatureHelpOptions
             definitionProvider = none(bool), #?: bool
             typeDefinitionProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
@@ -78,6 +102,43 @@ while true:
             workspace = none(WorkspaceCapability), #?: WorkspaceCapability
             experimental = none(JsonNode) #?: any
           )))
+        of "textDocument/completion":
+          if message["params"].isSome:
+            let compRequest = message["params"].unsafeGet
+            whenValid(compRequest, CompletionParams):
+              let
+                fileuri = compRequest["textDocument"]["uri"].getStr
+                filestash = storage / (hash(fileuri).toHex & ".nim" )
+              debugEcho "Got completion request for URI: ", fileuri, " copied to " & filestash
+              let
+                rawLine = compRequest["position"]["line"].getInt
+                rawChar = compRequest["position"]["character"].getInt
+                suggestions = openFiles[fileuri].nimsuggest.sug(fileuri[7..^1], dirtyfile = filestash,
+                  rawLine + 1,
+                  openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+                )
+              debugEcho "Found suggestions: ", suggestions
+              var completionItems = newJarray()
+              for suggestion in suggestions:
+                completionItems.add create(CompletionItem,
+                  label = suggestion.qualifiedPath.split('.')[^1],
+                  kind = none(int), # This should be a mapping from suggestion.symkind to SymbolKind 
+                  detail = some(suggestion.signature),
+                  documentation = some(suggestion.docstring),
+                  deprecated = none(bool),
+                  preselect = none(bool),
+                  sortText = none(string),
+                  filterText = none(string),
+                  insertText = none(string),
+                  insertTextFormat = none(int),
+                  textEdit = none(TextEdit),
+                  additionalTextEdits = none(seq[TextEdit]),
+                  commitCharacters = none(seq[string]),
+                  command = none(Command),
+                  data = none(JsonNode)
+                )
+              message.respond completionItems
+              
         else:
           debugEcho "Unknown request"
       continue
@@ -98,9 +159,49 @@ while true:
           if message["params"].isSome:
             let textDoc = message["params"].unsafeGet
             whenValid(textDoc, DidOpenTextDocumentParams):
-              debugEcho "New document opened for URI: " & textDoc["textDocument"]["uri"].getStr
+              if textDoc["textDocument"]["languageId"].getStr == "nim":
+                let
+                  fileuri = textDoc["textDocument"]["uri"].getStr
+                  filestash = storage / (hash(fileuri).toHex & ".nim" )
+                  file = open(filestash, fmWrite)
+                debugEcho "New document opened for URI: ", fileuri, " saving to " & filestash
+                openFiles[fileuri] = (
+                  nimsuggest: startNimsuggest(fileuri[7..^1]),
+                  fingerTable: @[]
+                )
+                for line in textDoc["textDocument"]["text"].getStr.splitLines:
+                  openFiles[fileuri].fingerTable.add line.createUTFMapping()
+                  file.writeLine line
+                file.close()
+        of "textDocument/didChange":
+          if message["params"].isSome:
+            let textDoc = message["params"].unsafeGet
+            whenValid(textDoc, DidChangeTextDocumentParams):
+              let
+                fileuri = textDoc["textDocument"]["uri"].getStr
+                filestash = storage / (hash(fileuri).toHex & ".nim" )
+                file = open(filestash, fmWrite)
+              debugEcho "Got document change for URI: ", fileuri, " saving to " & filestash
+              openFiles[fileuri].fingerTable = @[]
+              for line in textDoc["contentChanges"][0]["text"].getStr.splitLines:
+                openFiles[fileuri].fingerTable.add line.createUTFMapping()
+                file.writeLine line
+              file.close()
+        of "textDocument/didClose":
+          if message["params"].isSome:
+            let textDoc = message["params"].unsafeGet
+            whenValid(textDoc, DidCloseTextDocumentParams):
+              let
+                fileuri = textDoc["textDocument"]["uri"].getStr
+                filestash = storage / (hash(fileuri).toHex & ".nim" )
+              debugEcho "Got document close for URI: ", fileuri, " copied to " & filestash
+              removeFile(filestash)
+              debugEcho "Trying to stop nimsuggest"
+              debugEcho "Stopped nimsuggest with code: " & $openFiles[fileuri].nimsuggest.stopNimsuggest()
+              openFiles.del(fileuri)
         else:
           debugEcho "Got unknown notification message"
       continue
   except IOError:
+    debugEcho "Got IOError: " & getCurrentExceptionMsg()
     break

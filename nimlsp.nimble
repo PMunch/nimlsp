@@ -20,4 +20,4 @@ task test, "Runs the test suite":
   exec "nim c -d:debugLogging -d:jsonSchemaDebug -r tests/test_messages2.nim"
 
 task debug, "Builds the language server":
-  exec "nim c -d:debugCommunication -d:debugLogging -o:nimlsp src/nimlsp"
+  exec "nim c -d:debugCommunication -d:debugLogging -d:jsonSchemaDebug -o:nimlsp src/nimlsp"
