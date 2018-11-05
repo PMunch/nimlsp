@@ -32,7 +32,7 @@ Supported Protocol features
 
 - [ ] textDocument/codeAction
 - [x] textDocument/completion
-- [ ] textDocument/definition
+- [x] textDocument/definition
 - [ ] textDocument/documentHighlight
 - [ ] textDocument/documentSymbol
 - [ ] textDocument/executeCommand

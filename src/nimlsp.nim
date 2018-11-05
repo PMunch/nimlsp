@@ -141,7 +141,7 @@ while true:
             #signatureHelpProvider = some(create(SignatureHelpOptions,
             #  triggerCharacters = some(@["(", ","])
             #)), # ?: SignatureHelpOptions
-            definitionProvider = none(bool), #?: bool
+            definitionProvider = some(true), #?: bool
             typeDefinitionProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
             implementationProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
             referencesProvider = some(true), #?: bool
@@ -255,6 +255,32 @@ while true:
                   create(Range,
                     create(Position, suggestion.line-1, suggestion.column),
                     create(Position, suggestion.line-1, suggestion.column)
+                  )
+                ).JsonNode
+              message.respond response
+        of "textDocument/definition":
+          message.textDocumentRequest(TextDocumentPositionParams, definitionRequest):
+            let suggestions = projectFiles[openFiles[fileuri].projectFile].nimsuggest.def(fileuri[7..^1], dirtyfile = filestash,
+              rawLine + 1,
+              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+            )
+            let declarations = projectFiles[openFiles[fileuri].projectFile].nimsuggest.def(fileuri[7..^1], dirtyfile = filestash,
+              rawLine + 1,
+              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+            )
+            debugEcho "Found suggestions: ",
+              declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
+              (if declarations.len > 10: " and " & $(declarations.len-10) & " more" else: "")
+            if declarations.len == 0:
+              message.respond newJNull()
+            else:
+              var response = newJarray()
+              for declaration in declarations:
+                response.add create(Location,
+                  "file://" & declaration.filepath,
+                  create(Range,
+                    create(Position, declaration.line-1, declaration.column),
+                    create(Position, declaration.line-1, declaration.column)
                   )
                 ).JsonNode
               message.respond response
