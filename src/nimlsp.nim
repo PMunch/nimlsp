@@ -33,7 +33,8 @@ var
   outs = newFileStream(stdout)
   gotShutdown = false
   initialized = false
-  openFiles = initTable[string, tuple[nimsuggest: Nimsuggest, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
+  projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: int]]()
+  openFiles = initTable[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
 
 template whenValid(data, kind, body) =
   if data.isValid(kind):
@@ -144,7 +145,7 @@ while true:
               let
                 rawLine = compRequest["position"]["line"].getInt
                 rawChar = compRequest["position"]["character"].getInt
-                suggestions = openFiles[fileuri].nimsuggest.sug(fileuri[7..^1], dirtyfile = filestash,
+                suggestions = projectFiles[openFiles[fileuri].projectFile].nimsuggest.sug(fileuri[7..^1], dirtyfile = filestash,
                   rawLine + 1,
                   openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
                 )
@@ -196,11 +197,17 @@ while true:
                   fileuri = textDoc["textDocument"]["uri"].getStr
                   filestash = storage / (hash(fileuri).toHex & ".nim" )
                   file = open(filestash, fmWrite)
+                  projectFile = getProjectFile(fileuri[7..^1])
                 debugEcho "New document opened for URI: ", fileuri, " saving to " & filestash
                 openFiles[fileuri] = (
-                  nimsuggest: startNimsuggest(fileuri[7..^1]),
+                  #nimsuggest: startNimsuggest(fileuri[7..^1]),
+                  projectFile: projectFile,
                   fingerTable: @[]
                 )
+                if not projectFiles.hasKey(projectFile):
+                  projectFiles[projectFile] = (nimsuggest: startNimsuggest(projectFile), openFiles: 1)
+                else:
+                  projectFiles[projectFile].openFiles += 1
                 for line in textDoc["textDocument"]["text"].getStr.splitLines:
                   openFiles[fileuri].fingerTable.add line.createUTFMapping()
                   file.writeLine line
@@ -226,10 +233,13 @@ while true:
               let
                 fileuri = textDoc["textDocument"]["uri"].getStr
                 filestash = storage / (hash(fileuri).toHex & ".nim" )
+                projectFile = getProjectFile(fileuri[7..^1])
               debugEcho "Got document close for URI: ", fileuri, " copied to " & filestash
               removeFile(filestash)
-              debugEcho "Trying to stop nimsuggest"
-              debugEcho "Stopped nimsuggest with code: " & $openFiles[fileuri].nimsuggest.stopNimsuggest()
+              projectFiles[projectFile].openFiles -= 1
+              if projectFiles[projectFile].openFiles == 0:
+                debugEcho "Trying to stop nimsuggest"
+                debugEcho "Stopped nimsuggest with code: " & $projectFiles[openFiles[fileuri].projectFile].nimsuggest.stopNimsuggest()
               openFiles.del(fileuri)
         else:
           debugEcho "Got unknown notification message"
