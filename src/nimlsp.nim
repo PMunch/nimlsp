@@ -1,9 +1,11 @@
 import nimlsppkg / [base_protocol, utfmapping, nimsuggest]
 include nimlsppkg / messages2
+include nimlsppkg / mappings
 import streams
 import tables
 import strutils
 import os
+import ospaths
 import hashes
 
 const storage = "/tmp/nimlsp"
@@ -50,6 +52,35 @@ proc respond(request: RequestMessage, data: JsonNode) =
 
 proc error(request: RequestMessage, errorCode: int, message: string, data: JsonNode) =
   outs.sendJson create(ResponseMessage, "2.0", request["id"].getInt, none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
+
+type Certainty = enum
+  None,
+  Folder,
+  Cfg,
+  Nimble
+
+proc getProjectFile(file: string): string =
+  let (dir, _, _) = file.splitFile()
+  var
+    path = dir
+    certainty = None
+  result = file
+  while path.len > 0:
+    let
+      (dir, fname, ext) = path.splitFile()
+      current = fname & ext
+    if fileExists(path / current.addFileExt(".nim")) and certainty <= Folder:
+      result = path / current.addFileExt(".nim")
+      certainty = Folder
+    if fileExists(path / current.addFileExt(".nim")) and
+      (fileExists(path / current.addFileExt(".nim.cfg")) or
+      fileExists(path / current.addFileExt(".nims"))) and certainty <= Cfg:
+      result = path / current.addFileExt(".nim")
+      certainty = Cfg
+    if fileExists(path / current.addFileExt(".nimble")) and certainty <= Nimble:
+      # Read the .nimble file and find the project file
+      discard
+    path = dir
 
 while true:
   try:
@@ -117,12 +148,14 @@ while true:
                   rawLine + 1,
                   openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
                 )
-              debugEcho "Found suggestions: ", suggestions
+              debugEcho "Found suggestions: ",
+                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+                (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
               var completionItems = newJarray()
               for suggestion in suggestions:
                 completionItems.add create(CompletionItem,
                   label = suggestion.qualifiedPath.split('.')[^1],
-                  kind = none(int), # This should be a mapping from suggestion.symkind to SymbolKind 
+                  kind = some(nimSymToLSPKind(suggestion.symKind).int),
                   detail = some(suggestion.signature),
                   documentation = some(suggestion.docstring),
                   deprecated = none(bool),
@@ -138,7 +171,6 @@ while true:
                   data = none(JsonNode)
                 )
               message.respond completionItems
-              
         else:
           debugEcho "Unknown request"
       continue
