@@ -1,6 +1,5 @@
 import tables
 import unicode
-import termstyle
 
 type FingerTable = seq[tuple[u16pos, offset: int]]
 
@@ -38,6 +37,7 @@ proc utf16to8*(fingerTable: FingerTable, utf16pos: int): int =
       break
 
 when isMainModule:
+  import termstyle
   var x = "heållo☀☀wor𐐀𐐀☀ld heållo☀wor𐐀ld heållo☀wor𐐀ld"
   var fingerTable = populateUTFMapping(x)
 
