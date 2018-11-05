@@ -34,3 +34,6 @@ func nimSymDetails(suggest: Suggestion): string =
   of "skType": "type " & suggest.qualifiedPath
   of "skVar": "var of " & suggest.signature
   else: suggest.signature
+
+func nimDocstring(suggest: Suggestion): string =
+  suggest.docstring[1 .. ^2].replace("\\x0A","\n")
