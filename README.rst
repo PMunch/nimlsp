@@ -25,23 +25,27 @@ or if you want debug output
 Supported Protocol features
 =======
 
-- [x] textDocument/didChange
-- [x] textDocument/didClose
-- [x] textDocument/didOpen
-- [ ] textDocument/didSave
+======  ================================
+Status  LSP Command
+======  ================================
+☑ DONE  textDocument/didChange
+☑ DONE  textDocument/didClose
+☑ DONE  textDocument/didOpen
+☐ TODO  textDocument/didSave
+☐ TODO  textDocument/codeAction
+☑ DONE  textDocument/completion
+☑ DONE  textDocument/definition
+☐ TODO  textDocument/documentHighlight
+☐ TODO  textDocument/documentSymbol
+☐ TODO  textDocument/executeCommand
+☐ TODO  textDocument/format
+☑ DONE  textDocument/hover
+☐ TODO  textDocument/rename
+☑ DONE  textDocument/references
+☐ TODO  textDocument/signatureHelp
+☐ TODO  workspace/symbol
+======  ================================
 
-- [ ] textDocument/codeAction
-- [x] textDocument/completion
-- [x] textDocument/definition
-- [ ] textDocument/documentHighlight
-- [ ] textDocument/documentSymbol
-- [ ] textDocument/executeCommand
-- [ ] textDocument/format
-- [x] textDocument/hover
-- [ ] textDocument/rename
-- [x] textDocument/references
-- [ ] textDocument/signatureHelp
-- [ ] workspace/symbol
 
 Setting up `nimlsp`
 =======
@@ -59,6 +63,7 @@ in syntax highlighting and some definitions. If you know how to disable the
 overlapping features or achieve this in another way please update this section.
 
 Now in order to set up LSP itself enter it's settings and add this:
+
 .. code:: json
 
    {
