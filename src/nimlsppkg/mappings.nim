@@ -1,5 +1,5 @@
-func nimSymToLSPKind(kind: string): CompletionItemKind =
-  case kind:
+func nimSymToLSPKind(suggest: Suggestion): CompletionItemKind =
+  case suggest.symKind:
   of "skConst": CompletionItemKind.Value
   of "skEnumField": CompletionItemKind.Enum
   of "skForVar": CompletionItemKind.Variable

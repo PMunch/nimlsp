@@ -109,12 +109,15 @@ while true:
               willSaveWaitUntil = some(false),
               save = none(SaveOptions)
             )), # ?: TextDocumentSyncOptions or int or float
-            hoverProvider = none(bool), # ?: bool
+            hoverProvider = some(true), # ?: bool
             completionProvider = some(create(CompletionOptions,
               resolveProvider = some(true),
-              triggerCharacters = some(@["."])
+              triggerCharacters = some(@[".", " "])
             )), # ?: CompletionOptions
-            signatureHelpProvider = none(SignatureHelpOptions), # ?: SignatureHelpOptions
+            signatureHelpProvider = none(SignatureHelpOptions),
+            #signatureHelpProvider = some(create(SignatureHelpOptions,
+            #  triggerCharacters = some(@["(", ","])
+            #)), # ?: SignatureHelpOptions
             definitionProvider = none(bool), #?: bool
             typeDefinitionProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
             implementationProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
@@ -133,7 +136,7 @@ while true:
             executeCommandProvider = none(ExecuteCommandOptions), #?: ExecuteCommandOptions
             workspace = none(WorkspaceCapability), #?: WorkspaceCapability
             experimental = none(JsonNode) #?: any
-          )))
+          )).JsonNode)
         of "textDocument/completion":
           if message["params"].isSome:
             let compRequest = message["params"].unsafeGet
@@ -156,9 +159,9 @@ while true:
               for suggestion in suggestions:
                 completionItems.add create(CompletionItem,
                   label = suggestion.qualifiedPath.split('.')[^1],
-                  kind = some(nimSymToLSPKind(suggestion.symKind).int),
-                  detail = some(suggestion.signature),
-                  documentation = some(suggestion.docstring),
+                  kind = some(nimSymToLSPKind(suggestion).int),
+                  detail = some(nimSymDetails(suggestion)),
+                  documentation = some(suggestion.docstring[1 .. ^2]),
                   deprecated = none(bool),
                   preselect = none(bool),
                   sortText = none(string),
@@ -170,8 +173,63 @@ while true:
                   commitCharacters = none(seq[string]),
                   command = none(Command),
                   data = none(JsonNode)
-                )
+                ).JsonNode
               message.respond completionItems
+        of "textDocument/hover":
+          if message["params"].isSome:
+            let hoverRequest = message["params"].unsafeGet
+            whenValid(hoverRequest, TextDocumentPositionParams):
+              let
+                fileuri = hoverRequest["textDocument"]["uri"].getStr
+                filestash = storage / (hash(fileuri).toHex & ".nim" )
+              debugEcho "Got completion request for URI: ", fileuri, " copied to " & filestash
+              let
+                rawLine = hoverRequest["position"]["line"].getInt
+                rawChar = hoverRequest["position"]["character"].getInt
+                suggestions = projectFiles[openFiles[fileuri].projectFile].nimsuggest.def(fileuri[7..^1], dirtyfile = filestash,
+                  rawLine + 1,
+                  openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+                )
+              debugEcho "Found suggestions: ",
+                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+                (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+              if suggestions.len == 0:
+                message.respond newJNull()
+              else:
+                var label = suggestions[0].qualifiedPath
+                let
+                  rangeopt =
+                    some(create(Range,
+                      create(Position, rawLine, rawChar),
+                      create(Position, rawLine, rawChar)
+                    ))
+                  markedString = create(MarkedStringOption, "nim", label)
+                if suggestions[0].symKind != "":
+                  label &= ": " & suggestions[0].symKind
+                if suggestions[0].docstring != "\"\"":
+                  message.respond create(Hover,
+                    @[
+                      markedString,
+                      create(MarkedStringOption, "", suggestions[0].docstring[1 .. ^2]),
+                    ],
+                    rangeopt
+                  ).JsonNode
+                else:
+                  message.respond create(Hover, markedString, rangeopt).JsonNode
+
+        #of "textDocument/signatureHelp":
+        #  if message["params"].isSome:
+        #    let signRequest = message["params"].unsafeGet
+        #    whenValid(signRequest, TextDocumentPositionParams):
+        #      let
+        #        fileuri = signRequest["textDocument"]["uri"].getStr
+        #        filestash = storage / (hash(fileuri).toHex & ".nim" )
+        #      debugEcho "Got signature request for URI: ", fileuri, " copied to " & filestash
+        #      let
+        #        rawLine = signRequest["position"]["line"].getInt
+        #        rawChar = signRequest["position"]["character"].getInt
+        #        suggestions = projectFiles[openFiles[fileuri].projectFile].nimsuggest.con(fileuri[7..^1], dirtyfile = filestash, rawLine + 1, rawChar)
+
         else:
           debugEcho "Unknown request"
       continue
