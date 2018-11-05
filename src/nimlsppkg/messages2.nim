@@ -142,7 +142,7 @@ jsonSchema:
     stop: Position
 
   Location:
-    documentUri: string # Note that this is not checked
+    uri: string # Note that this is not checked
     "range": Range
 
   Diagnostic:

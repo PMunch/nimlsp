@@ -37,9 +37,9 @@ Supported Protocol features
 - [ ] textDocument/documentSymbol
 - [ ] textDocument/executeCommand
 - [ ] textDocument/format
-- [ ] textDocument/hover
+- [x] textDocument/hover
 - [ ] textDocument/rename
-- [ ] textDocument/references
+- [x] textDocument/references
 - [ ] textDocument/signatureHelp
 - [ ] workspace/symbol
 

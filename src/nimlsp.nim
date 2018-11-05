@@ -144,7 +144,7 @@ while true:
             definitionProvider = none(bool), #?: bool
             typeDefinitionProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
             implementationProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
-            referencesProvider = none(bool), #?: bool
+            referencesProvider = some(true), #?: bool
             documentHighlightProvider = none(bool), #?: bool
             documentSymbolProvider = none(bool), #?: bool
             workspaceSymbolProvider = none(bool), #?: bool
@@ -221,6 +221,43 @@ while true:
                 ).JsonNode
               else:
                 message.respond create(Hover, markedString, rangeopt).JsonNode
+        of "textDocument/references":
+          message.textDocumentRequest(ReferenceParams, referenceRequest):
+            let suggestions = projectFiles[openFiles[fileuri].projectFile].nimsuggest.use(fileuri[7..^1], dirtyfile = filestash,
+              rawLine + 1,
+              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+            )
+            let declarations: seq[Suggestion] =
+              if referenceRequest["context"]["includeDeclaration"].getBool:
+                projectFiles[openFiles[fileuri].projectFile].nimsuggest.def(fileuri[7..^1], dirtyfile = filestash,
+                  rawLine + 1,
+                  openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+                )
+              else: @[]
+            debugEcho "Found suggestions: ",
+              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+            if suggestions.len == 0 and declarations.len == 0:
+              message.respond newJNull()
+            else:
+              var response = newJarray()
+              for declaration in declarations:
+                response.add create(Location,
+                  "file://" & declaration.filepath,
+                  create(Range,
+                    create(Position, declaration.line-1, declaration.column),
+                    create(Position, declaration.line-1, declaration.column)
+                  )
+                ).JsonNode
+              for suggestion in suggestions:
+                response.add create(Location,
+                  "file://" & suggestion.filepath,
+                  create(Range,
+                    create(Position, suggestion.line-1, suggestion.column),
+                    create(Position, suggestion.line-1, suggestion.column)
+                  )
+                ).JsonNode
+              message.respond response
 
         #of "textDocument/signatureHelp":
         #  if message["params"].isSome:
