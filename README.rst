@@ -43,6 +43,56 @@ Supported Protocol features
 - [ ] textDocument/signatureHelp
 - [ ] workspace/symbol
 
+Setting up `nimlsp`
+=======
+So far the only editor `nimlsp` has been tried in is Sublime. If you want to
+try it out (or want some ideas on how to set it up for another editor) this is
+how it's done in Sublime:
+
+First you need a LSP client, the one that's been tested is
+https://github.com/tomv564/LSP. It's certainly not perfect, but it works well
+enough.
+
+Once you have it installed you'll want to grab NimLime as well. NimLime can
+perform many of the same features that `nimlsp` does, but we're only interested
+in syntax highlighting and some definitions. If you know how to disable the
+overlapping features or achieve this in another way please update this section.
+
+Now in order to set up LSP itself enter it's settings and add this:
+.. code:: json
+
+   {
+      "clients":
+      {
+         "nim":
+         {
+            "command":
+            [
+               "<path to nimlsp>/nimlsp" // This can be changed if you put nimlsp in your PATH
+            ],
+            "enabled": true,
+            "env":
+            {
+               "PATH": "<home directory>/.nimble/bin" // To be able to find nimsuggest, can be changed if you have nimsuggest in your PATH
+            },
+            "languageId": "nim",
+            "scopes":
+            [
+               "source.nim"
+            ],
+            "syntaxes":
+            [
+               "Packages/NimLime/Syntaxes/Nim.tmLanguage"
+            ]
+         }
+      },
+      // These are mostly for debugging feel free to remove them
+      // If you build nimlsp without debug information it doesn't
+      // write anything to stderr
+      "log_payloads": true,
+      "log_stderr": true
+   }
+
 Run Tests
 =========
 
