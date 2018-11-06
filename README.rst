@@ -31,7 +31,7 @@ Status  LSP Command
 ☑ DONE  textDocument/didChange
 ☑ DONE  textDocument/didClose
 ☑ DONE  textDocument/didOpen
-☐ TODO  textDocument/didSave
+☑ DONE  textDocument/didSave
 ☐ TODO  textDocument/codeAction
 ☑ DONE  textDocument/completion
 ☑ DONE  textDocument/definition
@@ -43,6 +43,7 @@ Status  LSP Command
 ☐ TODO  textDocument/rename
 ☑ DONE  textDocument/references
 ☐ TODO  textDocument/signatureHelp
+☑ DONE  textDocument/publishDiagnostics
 ☐ TODO  workspace/symbol
 ======  ================================
 

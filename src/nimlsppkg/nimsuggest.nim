@@ -44,7 +44,7 @@ proc stopNimSuggest*(nimsuggest: NimSuggest): int =
     nimsuggest.close()
   else: result = -1
 
-template createCommand(command: untyped) =
+template createFullCommand(command: untyped) =
   proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = "",
             line: int, col: int): seq[Suggestion] =
     if not nimsuggest.running:
@@ -58,16 +58,29 @@ template createCommand(command: untyped) =
       if line.startsWith(command.astToStr):
         result.add line.parseSuggestion
 
-createCommand(sug)
-createCommand(con)
-createCommand(def)
-createCommand(use)
-createCommand(dus)
-createCommand(chk)
-createCommand(`mod`)
-createCommand(highlight)
-createCommand(outline)
-createCommand(known)
+template createFileOnlyCommand(command: untyped) =
+  proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = ""): seq[Suggestion] =
+    if not nimsuggest.running:
+      raise newException(IOError, "nimsuggest process is not running")
+    nimsuggest.inputStream.writeLine("$1 $2$3" %
+      [command.astToStr, file, (if dirtyfile.len > 0: ";$1" % [dirtyfile] else: "")])
+    nimsuggest.inputStream.flush()
+    var line = ""
+    while line.len != 0 or result.len == 0:
+      line = nimsuggest.outputStream.readLine
+      if line.startsWith(command.astToStr):
+        result.add line.parseSuggestion
+
+createFullCommand(sug)
+createFullCommand(con)
+createFullCommand(def)
+createFullCommand(use)
+createFullCommand(dus)
+createFileOnlyCommand(chk)
+createFileOnlyCommand(`mod`)
+createFileOnlyCommand(highlight)
+createFileOnlyCommand(outline)
+createFileOnlyCommand(known)
 
 
 when isMainModule:
