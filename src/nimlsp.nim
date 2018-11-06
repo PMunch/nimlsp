@@ -65,7 +65,7 @@ template textDocumentNotification(message, kind, name, body) {.dirty.} =
   if message["params"].isSome:
     let name = message["params"].unsafeGet
     whenValid(name, kind):
-      if name["textDocument"]["languageId"].getStr == "nim":
+      if not name["textDocument"].hasKey("languageId") or name["textDocument"]["languageId"].getStr == "nim":
         let
           fileuri = name["textDocument"]["uri"].getStr
           filestash = storage / (hash(fileuri).toHex & ".nim" )
@@ -76,6 +76,9 @@ proc respond(request: RequestMessage, data: JsonNode) =
 
 proc error(request: RequestMessage, errorCode: int, message: string, data: JsonNode) =
   outs.sendJson create(ResponseMessage, "2.0", request["id"].getInt, none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
+
+proc notify(notification: string, data: JsonNode) =
+  outs.sendJson create(NotificationMessage, "2.0", notification, some(data)).JsonNode
 
 type Certainty = enum
   None,
@@ -130,7 +133,7 @@ while true:
               change = some(TextDocumentSyncKind.Full.int),
               willSave = some(false),
               willSaveWaitUntil = some(false),
-              save = none(SaveOptions)
+              save = some(create(SaveOptions, some(true)))
             )), # ?: TextDocumentSyncOptions or int or float
             hoverProvider = some(true), # ?: bool
             completionProvider = some(create(CompletionOptions,
@@ -352,6 +355,48 @@ while true:
               debugEcho "Trying to stop nimsuggest"
               debugEcho "Stopped nimsuggest with code: " & $projectFiles[openFiles[fileuri].projectFile].nimsuggest.stopNimsuggest()
             openFiles.del(fileuri)
+        of "textDocument/didSave":
+          message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
+            if textDoc["text"].isSome:
+              let file = open(filestash, fmWrite)
+              debugEcho "Got document change for URI: ", fileuri, " saving to ", filestash
+              openFiles[fileuri].fingerTable = @[]
+              for line in textDoc["text"].unsafeGet.getStr.splitLines:
+                openFiles[fileuri].fingerTable.add line.createUTFMapping()
+                file.writeLine line
+              file.close()
+            debugEcho "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
+            let diagnostics = projectFiles[openFiles[fileuri].projectFile].nimsuggest.chk(fileuri[7..^1], dirtyfile = filestash)
+            debugEcho "Found suggestions: ",
+              diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
+              (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
+            if diagnostics.len == 0:
+              notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
+                fileuri,
+                @[]).JsonNode
+              )
+            else:
+              var response: seq[Diagnostic]
+              for diagnostic in diagnostics:
+                response.add create(Diagnostic,
+                  create(Range,
+                    create(Position, diagnostic.line-1, diagnostic.column),
+                    create(Position, diagnostic.line-1, diagnostic.column)
+                  ),
+                  some(case diagnostic.qualifiedPath:
+                    of "Error": DiagnosticSeverity.Error.int
+                    of "Hint": DiagnosticSeverity.Hint.int
+                    of "Warning": DiagnosticSeverity.Warning.int
+                    else: DiagnosticSeverity.Error.int),
+                  none(int),
+                  some("nimsuggest chk"),
+                  diagnostic.nimDocstring,
+                  none(seq[DiagnosticRelatedInformation])
+                )
+              notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
+                fileuri,
+                response).JsonNode
+              )
         else:
           debugEcho "Got unknown notification message"
       continue

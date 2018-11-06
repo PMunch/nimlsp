@@ -36,4 +36,4 @@ func nimSymDetails(suggest: Suggestion): string =
   else: suggest.signature
 
 func nimDocstring(suggest: Suggestion): string =
-  suggest.docstring[1 .. ^2].replace("\\x0A","\n")
+  suggest.docstring.unescape()

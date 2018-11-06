@@ -139,7 +139,7 @@ jsonSchema:
 
   Range:
     start: Position
-    stop: Position
+    "end": Position
 
   Location:
     uri: string # Note that this is not checked
