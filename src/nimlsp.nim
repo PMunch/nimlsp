@@ -109,10 +109,14 @@ proc getProjectFile(file: string): string =
       discard
     path = dir
 
+template getNimsuggest(fileuri: string): Nimsuggest =
+  projectFiles[openFiles[fileuri].projectFile].nimsuggest
+
 while true:
   try:
+    debugEcho "Trying to read frame"
     let frame = ins.readFrame
-    debugEcho frame
+    debugEcho "Got frame:\n" & frame
     let message = frame.parseJson
     whenValid(message, RequestMessage):
       debugEcho "Got valid Request message of type " & message["method"].getStr
@@ -165,7 +169,7 @@ while true:
           )).JsonNode)
         of "textDocument/completion":
           message.textDocumentRequest(CompletionParams, compRequest):
-            let suggestions = projectFiles[openFiles[fileuri].projectFile].nimsuggest.sug(fileuri[7..^1], dirtyfile = filestash,
+            let suggestions = getNimsuggest(fileuri).sug(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
@@ -194,7 +198,7 @@ while true:
             message.respond completionItems
         of "textDocument/hover":
           message.textDocumentRequest(TextDocumentPositionParams, hoverRequest):
-            let suggestions = projectFiles[openFiles[fileuri].projectFile].nimsuggest.def(fileuri[7..^1], dirtyfile = filestash,
+            let suggestions = getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
@@ -226,13 +230,13 @@ while true:
                 message.respond create(Hover, markedString, rangeopt).JsonNode
         of "textDocument/references":
           message.textDocumentRequest(ReferenceParams, referenceRequest):
-            let suggestions = projectFiles[openFiles[fileuri].projectFile].nimsuggest.use(fileuri[7..^1], dirtyfile = filestash,
+            let suggestions = getNimsuggest(fileuri).use(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
             let declarations: seq[Suggestion] =
               if referenceRequest["context"]["includeDeclaration"].getBool:
-                projectFiles[openFiles[fileuri].projectFile].nimsuggest.def(fileuri[7..^1], dirtyfile = filestash,
+                getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
                   rawLine + 1,
                   openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
                 )
@@ -263,11 +267,11 @@ while true:
               message.respond response
         of "textDocument/definition":
           message.textDocumentRequest(TextDocumentPositionParams, definitionRequest):
-            let suggestions = projectFiles[openFiles[fileuri].projectFile].nimsuggest.def(fileuri[7..^1], dirtyfile = filestash,
+            let suggestions = getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
-            let declarations = projectFiles[openFiles[fileuri].projectFile].nimsuggest.def(fileuri[7..^1], dirtyfile = filestash,
+            let declarations = getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
@@ -299,7 +303,7 @@ while true:
         #      let
         #        rawLine = signRequest["position"]["line"].getInt
         #        rawChar = signRequest["position"]["character"].getInt
-        #        suggestions = projectFiles[openFiles[fileuri].projectFile].nimsuggest.con(fileuri[7..^1], dirtyfile = filestash, rawLine + 1, rawChar)
+        #        suggestions = getNimsuggest(fileuri).con(fileuri[7..^1], dirtyfile = filestash, rawLine + 1, rawChar)
 
         else:
           debugEcho "Unknown request"
@@ -353,7 +357,7 @@ while true:
             projectFiles[projectFile].openFiles -= 1
             if projectFiles[projectFile].openFiles == 0:
               debugEcho "Trying to stop nimsuggest"
-              debugEcho "Stopped nimsuggest with code: " & $projectFiles[openFiles[fileuri].projectFile].nimsuggest.stopNimsuggest()
+              debugEcho "Stopped nimsuggest with code: " & $getNimsuggest(fileuri).stopNimsuggest()
             openFiles.del(fileuri)
         of "textDocument/didSave":
           message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
@@ -366,7 +370,7 @@ while true:
                 file.writeLine line
               file.close()
             debugEcho "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
-            let diagnostics = projectFiles[openFiles[fileuri].projectFile].nimsuggest.chk(fileuri[7..^1], dirtyfile = filestash)
+            let diagnostics = getNimsuggest(fileuri).chk(fileuri[7..^1], dirtyfile = filestash)
             debugEcho "Found suggestions: ",
               diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
               (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
@@ -378,10 +382,16 @@ while true:
             else:
               var response: seq[Diagnostic]
               for diagnostic in diagnostics:
+                if diagnostic.line == 0:
+                  continue
+                # Try to guess the size of the identifier
+                let
+                  message = diagnostic.nimDocstring
+                  endcolumn = diagnostic.column +  message.rfind('\'') - message.find('\'') - 1
                 response.add create(Diagnostic,
                   create(Range,
                     create(Position, diagnostic.line-1, diagnostic.column),
-                    create(Position, diagnostic.line-1, diagnostic.column)
+                    create(Position, diagnostic.line-1, max(diagnostic.column, endcolumn))
                   ),
                   some(case diagnostic.qualifiedPath:
                     of "Error": DiagnosticSeverity.Error.int
@@ -390,7 +400,7 @@ while true:
                     else: DiagnosticSeverity.Error.int),
                   none(int),
                   some("nimsuggest chk"),
-                  diagnostic.nimDocstring,
+                  message,
                   none(seq[DiagnosticRelatedInformation])
                 )
               notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
@@ -401,5 +411,4 @@ while true:
           debugEcho "Got unknown notification message"
       continue
   except IOError:
-    debugEcho "Got IOError: " & getCurrentExceptionMsg()
     break
