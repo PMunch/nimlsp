@@ -15,8 +15,7 @@ proc sendFrame*(s: Stream, frame: string) =
   when defined(debugCommunication):
     stderr.write(frame)
     stderr.write("\n")
-  s.write "Content-Length: " & $frame.len & "\r\n\r\n" &
-                      frame & "\r\n\r\n"
+  s.write "Content-Length: " & $frame.len & "\r\n\r\n" & frame
   s.flush
 
 proc sendJson*(s: Stream, data: JsonNode) =
