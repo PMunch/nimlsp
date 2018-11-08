@@ -44,32 +44,29 @@ proc stopNimSuggest*(nimsuggest: NimSuggest): int =
     nimsuggest.close()
   else: result = -1
 
-template createFullCommand(command: untyped) =
+template createCommand(command, body: untyped): untyped =
+  if not nimsuggest.running:
+    raise newException(IOError, "nimsuggest process is not running")
+  body
+  nimsuggest.inputStream.flush()
+  var line = ""
+  while line.len != 0 or result.len == 0:
+    line = nimsuggest.outputStream.readLine
+    if line.startsWith(command.astToStr):
+      result.add line.parseSuggestion
+
+template createFullCommand(command: untyped) {.dirty.} =
   proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = "",
             line: int, col: int): seq[Suggestion] =
-    if not nimsuggest.running:
-      raise newException(IOError, "nimsuggest process is not running")
-    nimsuggest.inputStream.writeLine("$1 $2$3:$4:$5" %
-      [command.astToStr, file, (if dirtyfile.len > 0: ";$1" % [dirtyfile] else: ""), $line, $col])
-    nimsuggest.inputStream.flush()
-    var line = ""
-    while line.len != 0 or result.len == 0:
-      line = nimsuggest.outputStream.readLine
-      if line.startsWith(command.astToStr):
-        result.add line.parseSuggestion
+    createCommand(command):
+      nimsuggest.inputStream.writeLine("$1 $2$3:$4:$5" %
+        [command.astToStr, file, (if dirtyfile.len > 0: ";$1" % [dirtyfile] else: ""), $line, $col])
 
-template createFileOnlyCommand(command: untyped) =
+template createFileOnlyCommand(command: untyped) {.dirty.} =
   proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = ""): seq[Suggestion] =
-    if not nimsuggest.running:
-      raise newException(IOError, "nimsuggest process is not running")
-    nimsuggest.inputStream.writeLine("$1 $2$3" %
-      [command.astToStr, file, (if dirtyfile.len > 0: ";$1" % [dirtyfile] else: "")])
-    nimsuggest.inputStream.flush()
-    var line = ""
-    while line.len != 0 or result.len == 0:
-      line = nimsuggest.outputStream.readLine
-      if line.startsWith(command.astToStr):
-        result.add line.parseSuggestion
+    createCommand(command):
+      nimsuggest.inputStream.writeLine("$1 $2$3" %
+        [command.astToStr, file, (if dirtyfile.len > 0: ";$1" % [dirtyfile] else: "")])
 
 createFullCommand(sug)
 createFullCommand(con)
