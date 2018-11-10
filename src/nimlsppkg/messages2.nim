@@ -190,6 +190,15 @@ jsonSchema:
   TextDocumentPositionParams:
     textDocument: TextDocumentIdentifier
     position: Position
+    buftype?: string # Added by LanguageCLient-neovim erroneously
+    character?: int # Added by LanguageCLient-neovim erroneously
+    filename?: string # Added by LanguageCLient-neovim erroneously
+    gotoCmd?: string or nil # Added by LanguageCLient-neovim erroneously
+    handle?: bool # Added by LanguageCLient-neovim erroneously
+    languageId?: string # Added by LanguageCLient-neovim erroneously
+    line?: int # Added by LanguageCLient-neovim erroneously
+    "method"?: string # Added by LanguageCLient-neovim erroneously
+    text?: string[] # Added by LanguageCLient-neovim erroneously
 
   DocumentFilter:
     language?: string

@@ -57,8 +57,8 @@ template textDocumentRequest(message, kind, name, body) {.dirty.} =
         filestash = storage / (hash(fileuri).toHex & ".nim" )
       debugEcho "Got request for URI: ", fileuri, " copied to " & filestash
       let
-        rawLine = name["position"]["line"].getInt
-        rawChar = name["position"]["character"].getInt
+        rawLine = max(name["position"]["line"].getInt, 0)
+        rawChar = max(name["position"]["character"].getInt, 0)
       body
 
 template textDocumentNotification(message, kind, name, body) {.dirty.} =
@@ -387,11 +387,13 @@ while true:
                 # Try to guess the size of the identifier
                 let
                   message = diagnostic.nimDocstring
-                  endcolumn = diagnostic.column +  message.rfind('\'') - message.find('\'') - 1
+                  endcolumn = max(diagnostic.column + message.rfind('\'') - message.find('\'') - 1, 0)
+                  diagnosticLine = max(diagnostic.line-1, 0)
+                  diagnosticColumn = max(diagnostic.column, endcolumn)
                 response.add create(Diagnostic,
                   create(Range,
-                    create(Position, diagnostic.line-1, diagnostic.column),
-                    create(Position, diagnostic.line-1, max(diagnostic.column, endcolumn))
+                    create(Position, diagnosticLine, diagnosticColumn),
+                    create(Position, diagnosticLine, diagnosticColumn)
                   ),
                   some(case diagnostic.qualifiedPath:
                     of "Error": DiagnosticSeverity.Error.int
