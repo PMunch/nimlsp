@@ -6,7 +6,6 @@ import strutils
 import os
 import ospaths
 import hashes
-#include nimlsppkg / mappings
 
 const storage = "/tmp/nimlsp"
 
@@ -173,9 +172,9 @@ while true:
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
-            #debugEcho "Found suggestions: ",
-            #  suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-            #  (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+            debugEcho "Found suggestions: ",
+              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
             var completionItems = newJarray()
             for suggestion in suggestions:
               completionItems.add create(CompletionItem,
@@ -202,9 +201,9 @@ while true:
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
-            #debugEcho "Found suggestions: ",
-            #  suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-            #  (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+            debugEcho "Found suggestions: ",
+              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
             if suggestions.len == 0:
               message.respond newJNull()
             else:
@@ -241,9 +240,9 @@ while true:
                   openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
                 )
               else: @[]
-            #debugEcho "Found suggestions: ",
-            #  suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-            #  (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+            debugEcho "Found suggestions: ",
+              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
             if suggestions.len == 0 and declarations.len == 0:
               message.respond newJNull()
             else:
@@ -275,9 +274,9 @@ while true:
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
-            #debugEcho "Found suggestions: ",
-            #  declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
-            #  (if declarations.len > 10: " and " & $(declarations.len-10) & " more" else: "")
+            debugEcho "Found suggestions: ",
+              declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
+              (if declarations.len > 10: " and " & $(declarations.len-10) & " more" else: "")
             if declarations.len == 0:
               message.respond newJNull()
             else:
@@ -371,9 +370,9 @@ while true:
               file.close()
             debugEcho "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
             let diagnostics = getNimsuggest(fileuri).chk(fileuri[7..^1], dirtyfile = filestash)
-            #debugEcho "Found suggestions: ",
-            #  diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
-            #  (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
+            debugEcho "Found suggestions: ",
+              diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
+              (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
             if diagnostics.len == 0:
               notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
                 fileuri,
@@ -387,7 +386,7 @@ while true:
                 # Try to guess the size of the identifier
                 let
                   message = diagnostic.nimDocstring
-                  endcolumn = diagnostic.column +  message.rfind('\'') - message.find('\'') - 1
+                  endcolumn = diagnostic.column + message.rfind('\'') - message.find('\'') - 1
                 response.add create(Diagnostic,
                   create(Range,
                     create(Position, diagnostic.line-1, diagnostic.column),

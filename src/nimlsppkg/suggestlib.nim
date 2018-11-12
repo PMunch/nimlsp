@@ -12,6 +12,7 @@ import compiler / [options, commands, modules, sem,
   idents, modulegraphs, vm, prefixmatches, lineinfos, cmdlinehelper,
   pathutils]
 
+import messageenums
 export Suggest
 
 when defined(windows):
@@ -194,33 +195,27 @@ proc startNimSuggest*(path: string): NimSuggest =
 
 proc stopNimSuggest*(nimsuggest: NimSuggest): int = 42
 
-type
-  CompletionItemKind {.pure.} = enum
-    Text = 1,
-    Method = 2,
-    Function = 3,
-    Constructor = 4,
-    Field = 5,
-    Variable = 6,
-    Class = 7,
-    Interface = 8,
-    Module = 9,
-    Property = 10,
-    Unit = 11,
-    Value = 12,
-    Enum = 13,
-    Keyword = 14,
-    Snippet = 15,
-    Color = 16,
-    File = 17,
-    Reference = 18,
-    Folder = 19,
-    EnumMember = 20,
-    Constant = 21,
-    Struct = 22,
-    Event = 23,
-    Operator = 24,
-    TypeParameter = 25
+proc `$`*(suggestion: Suggest): string =
+  let sep = ", "
+  result = "(section: " & $suggestion.section
+  result.add sep
+  result.add "symKind: " & $suggestion.symkind.TSymKind
+  result.add sep
+  result.add "qualifiedPath: " & suggestion.qualifiedPath.join(".")
+  result.add sep
+  result.add suggestion.forth
+  result.add sep
+  result.add suggestion.filePath
+  result.add sep
+  result.add $suggestion.line
+  result.add sep
+  result.add $suggestion.column
+  result.add sep
+  result.add $suggestion.quality
+  result.add sep
+  result.add $suggestion.line
+  result.add sep
+  result.add $suggestion.prefix
 
 func nimSymToLSPKind*(suggest: Suggest): CompletionItemKind =
   case $suggest.symKind.TSymKind:
