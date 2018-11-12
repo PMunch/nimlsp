@@ -1,4 +1,4 @@
-import nimlsppkg / [base_protocol, utfmapping, nimsuggest]
+import nimlsppkg / [base_protocol, utfmapping, suggestlib]
 include nimlsppkg / messages2
 import streams
 import tables
@@ -6,7 +6,7 @@ import strutils
 import os
 import ospaths
 import hashes
-include nimlsppkg / mappings
+#include nimlsppkg / mappings
 
 const storage = "/tmp/nimlsp"
 
@@ -173,13 +173,13 @@ while true:
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
-            debugEcho "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+            #debugEcho "Found suggestions: ",
+            #  suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+            #  (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
             var completionItems = newJarray()
             for suggestion in suggestions:
               completionItems.add create(CompletionItem,
-                label = suggestion.qualifiedPath.split('.')[^1],
+                label = suggestion.qualifiedPath[^1],
                 kind = some(nimSymToLSPKind(suggestion).int),
                 detail = some(nimSymDetails(suggestion)),
                 documentation = some(suggestion.nimDocstring),
@@ -202,15 +202,15 @@ while true:
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
-            debugEcho "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+            #debugEcho "Found suggestions: ",
+            #  suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+            #  (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
             if suggestions.len == 0:
               message.respond newJNull()
             else:
-              var label = suggestions[0].qualifiedPath
-              if suggestions[0].signature != "":
-                label &= ": " & suggestions[0].signature
+              var label = suggestions[0].qualifiedPath.join(".")
+              if suggestions[0].forth != "":
+                label &= ": " & suggestions[0].forth
               let
                 rangeopt =
                   some(create(Range,
@@ -218,7 +218,7 @@ while true:
                     create(Position, rawLine, rawChar)
                   ))
                 markedString = create(MarkedStringOption, "nim", label)
-              if suggestions[0].docstring != "\"\"":
+              if suggestions[0].doc != "":
                 message.respond create(Hover,
                   @[
                     markedString,
@@ -234,16 +234,16 @@ while true:
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
-            let declarations: seq[Suggestion] =
+            let declarations: seq[Suggest] =
               if referenceRequest["context"]["includeDeclaration"].getBool:
                 getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
                   rawLine + 1,
                   openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
                 )
               else: @[]
-            debugEcho "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+            #debugEcho "Found suggestions: ",
+            #  suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+            #  (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
             if suggestions.len == 0 and declarations.len == 0:
               message.respond newJNull()
             else:
@@ -275,9 +275,9 @@ while true:
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
-            debugEcho "Found suggestions: ",
-              declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
-              (if declarations.len > 10: " and " & $(declarations.len-10) & " more" else: "")
+            #debugEcho "Found suggestions: ",
+            #  declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
+            #  (if declarations.len > 10: " and " & $(declarations.len-10) & " more" else: "")
             if declarations.len == 0:
               message.respond newJNull()
             else:
@@ -371,9 +371,9 @@ while true:
               file.close()
             debugEcho "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
             let diagnostics = getNimsuggest(fileuri).chk(fileuri[7..^1], dirtyfile = filestash)
-            debugEcho "Found suggestions: ",
-              diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
-              (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
+            #debugEcho "Found suggestions: ",
+            #  diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
+            #  (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
             if diagnostics.len == 0:
               notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
                 fileuri,
@@ -393,7 +393,7 @@ while true:
                     create(Position, diagnostic.line-1, diagnostic.column),
                     create(Position, diagnostic.line-1, max(diagnostic.column, endcolumn))
                   ),
-                  some(case diagnostic.qualifiedPath:
+                  some(case diagnostic.qualifiedPath.join("."): # This might be forth instead
                     of "Error": DiagnosticSeverity.Error.int
                     of "Hint": DiagnosticSeverity.Hint.int
                     of "Warning": DiagnosticSeverity.Warning.int

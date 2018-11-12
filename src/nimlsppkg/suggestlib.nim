@@ -1,5 +1,5 @@
-when not defined(nimcore):
-  {.error: "nimcore MUST be defined for Nim's core tooling".}
+#when not defined(nimcore):
+#  {.error: "nimcore MUST be defined for Nim's core tooling".}
 
 import strutils, os, parseopt, parseutils, sequtils, net, rdstdin#, sexp
 # Do NOT import suggest. It will lead to wierd bugs with
@@ -11,6 +11,8 @@ import compiler / [options, commands, modules, sem,
   sigmatch, ast, scriptconfig,
   idents, modulegraphs, vm, prefixmatches, lineinfos, cmdlinehelper,
   pathutils]
+
+export Suggest
 
 when defined(windows):
   import winlean
@@ -96,7 +98,7 @@ proc execute*(nimsuggest: NimSuggest, cmd: IdeCmd, file, dirtyfile: AbsoluteFile
     return retval
 
 
-proc initNimSuggest*(path: string): NimSuggest =
+proc startNimSuggest*(path: string): NimSuggest =
   let
     cache = newIdentCache()
     conf = newConfigRef()
@@ -189,6 +191,96 @@ proc initNimSuggest*(path: string): NimSuggest =
   # can answer questions right away:
   compileProject(graph)
   return graph.NimSuggest
+
+proc stopNimSuggest*(nimsuggest: NimSuggest): int = 42
+
+type
+  CompletionItemKind {.pure.} = enum
+    Text = 1,
+    Method = 2,
+    Function = 3,
+    Constructor = 4,
+    Field = 5,
+    Variable = 6,
+    Class = 7,
+    Interface = 8,
+    Module = 9,
+    Property = 10,
+    Unit = 11,
+    Value = 12,
+    Enum = 13,
+    Keyword = 14,
+    Snippet = 15,
+    Color = 16,
+    File = 17,
+    Reference = 18,
+    Folder = 19,
+    EnumMember = 20,
+    Constant = 21,
+    Struct = 22,
+    Event = 23,
+    Operator = 24,
+    TypeParameter = 25
+
+func nimSymToLSPKind*(suggest: Suggest): CompletionItemKind =
+  case $suggest.symKind.TSymKind:
+  of "skConst": CompletionItemKind.Value
+  of "skEnumField": CompletionItemKind.Enum
+  of "skForVar": CompletionItemKind.Variable
+  of "skIterator": CompletionItemKind.Keyword
+  of "skLabel": CompletionItemKind.Keyword
+  of "skLet": CompletionItemKind.Value
+  of "skMacro": CompletionItemKind.Snippet
+  of "skMethod": CompletionItemKind.Method
+  of "skParam": CompletionItemKind.Variable
+  of "skProc": CompletionItemKind.Function
+  of "skResult": CompletionItemKind.Value
+  of "skTemplate": CompletionItemKind.Snippet
+  of "skType": CompletionItemKind.Class
+  of "skVar": CompletionItemKind.Field
+  of "skFunc": CompletionItemKind.Function
+  else: CompletionItemKind.Property
+
+func nimSymDetails*(suggest: Suggest): string =
+  case $suggest.symKind.TSymKind:
+  of "skConst": "const " & suggest.qualifiedPath.join(".") & ": " & suggest.forth
+  of "skEnumField": "enum " & suggest.forth
+  of "skForVar": "for var of " & suggest.forth
+  of "skIterator": suggest.forth
+  of "skLabel": "label"
+  of "skLet": "let of " & suggest.forth
+  of "skMacro": "macro"
+  of "skMethod": suggest.forth
+  of "skParam": "param"
+  of "skProc": suggest.forth
+  of "skResult": "result"
+  of "skTemplate": suggest.forth
+  of "skType": "type " & suggest.qualifiedPath.join(".")
+  of "skVar": "var of " & suggest.forth
+  else: suggest.forth
+
+func nimDocstring*(suggest: Suggest): string =
+  suggest.doc
+
+template createFullCommand(command: untyped) {.dirty.} =
+  proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = "",
+            line: int, col: int): seq[Suggest] =
+    nimsuggest.execute(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile, line, col)
+
+template createFileOnlyCommand(command: untyped) {.dirty.} =
+  proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = ""): seq[Suggest] =
+    nimsuggest.execute(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile, 0, 0)
+
+createFullCommand(sug)
+createFullCommand(con)
+createFullCommand(def)
+createFullCommand(use)
+createFullCommand(dus)
+createFileOnlyCommand(chk)
+#createFileOnlyCommand(`mod`)
+createFileOnlyCommand(highlight)
+createFileOnlyCommand(outline)
+createFileOnlyCommand(known)
 
 when isMainModule:
   var graph = initNimSuggest("/home/peter/Projects/nimlsp/lib/nimsuggest/suglibtest.nim")
