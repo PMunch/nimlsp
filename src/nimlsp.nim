@@ -7,7 +7,9 @@ import os
 import ospaths
 import hashes
 
-const storage = "/tmp/nimlsp"
+const
+  storage = "/tmp/nimlsp"
+  nimpath = "/home/peter/div/Nim"
 
 discard existsOrCreateDir(storage)
 
@@ -327,12 +329,12 @@ while true:
               projectFile = getProjectFile(fileuri[7..^1])
             debugEcho "New document opened for URI: ", fileuri, " saving to " & filestash
             openFiles[fileuri] = (
-              #nimsuggest: startNimsuggest(fileuri[7..^1]),
+              #nimsuggest: initNimsuggest(fileuri[7..^1]),
               projectFile: projectFile,
               fingerTable: @[]
             )
             if not projectFiles.hasKey(projectFile):
-              projectFiles[projectFile] = (nimsuggest: startNimsuggest(projectFile), openFiles: 1)
+              projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
             else:
               projectFiles[projectFile].openFiles += 1
             for line in textDoc["textDocument"]["text"].getStr.splitLines:

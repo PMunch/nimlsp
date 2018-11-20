@@ -1,6 +1,10 @@
-import "/home/peter/Projects/Nim/nimsuggest/nimsuggest.nim"
+import "/home/peter/div/Nim/nimsuggest/nimsuggest.nim"
 import messageenums
 import strutils
+import compiler / ast
+export Suggest
+export NimSuggest
+export initNimSuggest
 
 proc stopNimSuggest*(nimsuggest: NimSuggest): int = 42
 
@@ -8,7 +12,7 @@ proc `$`*(suggestion: Suggest): string =
   let sep = ", "
   result = "(section: " & $suggestion.section
   result.add sep
-  result.add "symKind: "# & $suggestion.symkind.TSymKind
+  result.add "symKind: " & $suggestion.symkind.TSymKind
   result.add sep
   result.add "qualifiedPath: " & suggestion.qualifiedPath.join(".")
   result.add sep
@@ -26,7 +30,6 @@ proc `$`*(suggestion: Suggest): string =
   result.add sep
   result.add $suggestion.prefix
 
-#[
 func nimSymToLSPKind*(suggest: Suggest): CompletionItemKind =
   case $suggest.symKind.TSymKind:
   of "skConst": CompletionItemKind.Value
@@ -66,7 +69,7 @@ func nimSymDetails*(suggest: Suggest): string =
 
 func nimDocstring*(suggest: Suggest): string =
   suggest.doc
-]#
+
 template createFullCommand(command: untyped) {.dirty.} =
   proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = "",
             line: int, col: int): seq[Suggest] =
@@ -89,8 +92,8 @@ createFileOnlyCommand(outline)
 createFileOnlyCommand(known)
 
 when isMainModule:
-  var graph = initNimSuggest("/home/peter/Projects/nimlsp/lib/nimsuggest/suglibtest.nim")
-  var suggestions = graph.sug("/home/peter/Projects/nimlsp/lib/nimsuggest/suglibtest.nim", "/home/peter/Projects/nimlsp/lib/nimsuggest/suglibtest.nim", 7, 2)
+  var graph = initNimSuggest("/home/peter/div/nimlsp/suglibtest.nim", nimPath = "/home/peter/div/Nim")
+  var suggestions = graph.sug("/home/peter/div/nimlsp/suglibtest.nim", "/home/peter/div/nimlsp/suglibtest.nim", 7, 2)
   echo "Got ", suggestions.len, " suggestions"
   for suggestion in suggestions:
     echo suggestion
