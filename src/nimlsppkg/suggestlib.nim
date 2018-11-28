@@ -1,4 +1,4 @@
-import "/home/peter/div/Nim/nimsuggest/nimsuggest.nim"
+import "./Nim/nimsuggest/nimsuggest.nim"
 import messageenums
 import strutils
 import compiler / ast
