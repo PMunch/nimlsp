@@ -225,7 +225,7 @@ while true:
                 rangeopt =
                   some(create(Range,
                     create(Position, rawLine, rawChar),
-                    create(Position, rawLine, rawChar)
+                    create(Position, rawLine, rawChar + suggestions[0].qualifiedPath[^1].len)
                   ))
                 markedString = create(MarkedStringOption, "nim", label)
               if suggestions[0].doc != "":
@@ -263,7 +263,7 @@ while true:
                   "file://" & declaration.filepath,
                   create(Range,
                     create(Position, declaration.line-1, declaration.column),
-                    create(Position, declaration.line-1, declaration.column)
+                    create(Position, declaration.line-1, declaration.column + declaration.qualifiedPath[^1].len)
                   )
                 ).JsonNode
               for suggestion in suggestions:
@@ -271,7 +271,7 @@ while true:
                   "file://" & suggestion.filepath,
                   create(Range,
                     create(Position, suggestion.line-1, suggestion.column),
-                    create(Position, suggestion.line-1, suggestion.column)
+                    create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
                   )
                 ).JsonNode
               message.respond response
@@ -297,7 +297,7 @@ while true:
                   "file://" & declaration.filepath,
                   create(Range,
                     create(Position, declaration.line-1, declaration.column),
-                    create(Position, declaration.line-1, declaration.column)
+                    create(Position, declaration.line-1, declaration.column + declaration.qualifiedPath[^1].len)
                   )
                 ).JsonNode
               message.respond response
