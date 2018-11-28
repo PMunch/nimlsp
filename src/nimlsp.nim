@@ -9,7 +9,9 @@ import hashes
 
 const
   storage = "/tmp/nimlsp"
-  nimpath = "/home/peter/div/Nim"
+
+var
+  nimpath = currentSourcePath().parentDir() / "nimlsppkg/Nim"
 
 discard existsOrCreateDir(storage)
 
@@ -112,6 +114,13 @@ proc getProjectFile(file: string): string =
 
 template getNimsuggest(fileuri: string): Nimsuggest =
   projectFiles[openFiles[fileuri].projectFile].nimsuggest
+
+if paramCount() == 1:
+  nimpath = expandFilename(paramStr(1))
+if not existsFile(nimpath / "config/nim.cfg"):
+  stderr.write "Unable to find \"config/nim.cfg\" in \"" & nimpath & "\". " &
+    "Supply the Nim project folder by adding it as an argument.\n"
+  quit 1
 
 while true:
   try:
