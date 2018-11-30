@@ -74,7 +74,6 @@ func nimDocstring*(suggest: Suggest): string =
 template createFullCommand(command: untyped) {.dirty.} =
   proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = "",
             line: int, col: int): seq[Suggest] =
-    echo "running ", astToStr(command)
     nimsuggest.runCmd(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile, line, col)
 
 template createFileOnlyCommand(command: untyped) {.dirty.} =
