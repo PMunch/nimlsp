@@ -170,7 +170,7 @@ while true:
             documentFormattingProvider = none(bool), #?: bool
             documentRangeFormattingProvider = none(bool), #?: bool
             documentOnTypeFormattingProvider = none(DocumentOnTypeFormattingOptions), #?: DocumentOnTypeFormattingOptions
-            renameProvider = none(bool), #?: bool
+            renameProvider = some(true), #?: bool
             documentLinkProvider = none(DocumentLinkOptions), #?: DocumentLinkOptions
             colorProvider = none(bool), #?: bool or ColorProviderOptions or TextDocumentAndStaticRegistrationOptions
             executeCommandProvider = none(ExecuteCommandOptions), #?: ExecuteCommandOptions
@@ -275,12 +275,35 @@ while true:
                   )
                 ).JsonNode
               message.respond response
-        of "textDocument/definition":
-          message.textDocumentRequest(TextDocumentPositionParams, definitionRequest):
-            let suggestions = getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
+        of "textDocument/rename":
+          message.textDocumentRequest(RenameParams, renameRequest):
+            let suggestions = getNimsuggest(fileuri).use(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
+            debugEcho "Found suggestions: ",
+              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+            if suggestions.len == 0:
+              message.respond newJNull()
+            else:
+              var textEdits = newJObject()
+              for suggestion in suggestions:
+                if not textEdits.hasKey("file://" & suggestion.filepath):
+                  textEdits["file://" & suggestion.filepath] = newJArray()
+                textEdits["file://" & suggestion.filepath].add create(TextEdit,
+                  create(Range,
+                    create(Position, suggestion.line-1, suggestion.column),
+                    create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
+                  ),
+                  renameRequest["newName"].getStr
+                ).JsonNode
+              message.respond create(WorkspaceEdit,
+                some(textEdits),
+                none(seq[TextDocumentEdit])
+              ).JsonNode
+        of "textDocument/definition":
+          message.textDocumentRequest(TextDocumentPositionParams, definitionRequest):
             let declarations = getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)

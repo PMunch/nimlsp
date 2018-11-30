@@ -3,6 +3,7 @@ import messageenums
 import strutils
 import compiler / ast
 export Suggest
+export IdeCmd
 export NimSuggest
 export initNimSuggest
 
