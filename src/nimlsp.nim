@@ -244,29 +244,12 @@ while true:
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
-            let declarations: seq[Suggest] =
-              if referenceRequest["context"]["includeDeclaration"].getBool:
-                getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
-                  rawLine + 1,
-                  openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-                )
-              else: @[]
             debugEcho "Found suggestions: ",
               suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
               (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
-            if suggestions.len == 0 and declarations.len == 0:
-              message.respond newJNull()
-            else:
-              var response = newJarray()
-              for declaration in declarations:
-                response.add create(Location,
-                  "file://" & declaration.filepath,
-                  create(Range,
-                    create(Position, declaration.line-1, declaration.column),
-                    create(Position, declaration.line-1, declaration.column + declaration.qualifiedPath[^1].len)
-                  )
-                ).JsonNode
-              for suggestion in suggestions:
+            var response = newJarray()
+            for suggestion in suggestions:
+              if suggestion.section == ideUse or referenceRequest["context"]["includeDeclaration"].getBool:
                 response.add create(Location,
                   "file://" & suggestion.filepath,
                   create(Range,
@@ -274,6 +257,9 @@ while true:
                     create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
                   )
                 ).JsonNode
+            if response.len == 0:
+              message.respond newJNull()
+            else:
               message.respond response
         of "textDocument/rename":
           message.textDocumentRequest(RenameParams, renameRequest):
