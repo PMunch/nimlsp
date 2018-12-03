@@ -9,9 +9,20 @@ import hashes
 
 const
   storage = "/tmp/nimlsp"
+  version = block:
+    var version = "0.0.0"
+    let nimbleFile = staticRead(currentSourcePath().parentDir().parentDir() / "nimlsp.nimble")
+    for line in nimbleFile.splitLines:
+      let keyval = line.split("=")
+      if keyval.len == 2:
+        if keyval[0].strip == "version":
+          version = keyval[1].strip(chars = Whitespace + {'"'})
+          break
+    version
+  # This is used to explicitly set the default source path
+  explicitSourcePath {.strdefine.} = currentSourcePath().parentDir() / "nimlsppkg/Nim"
 
-var
-  nimpath = currentSourcePath().parentDir() / "nimlsppkg/Nim"
+var nimpath = explicitSourcePath
 
 discard existsOrCreateDir(storage)
 
@@ -25,11 +36,6 @@ template debugEcho(args: varargs[string, `$`]) =
     logFile.write(join args)
     logFile.write("\n\n")
     logFile.flushFile()
-# Hello Nim!
-debugEcho "Started nimlsp with ENV:"
-for ev in envPairs():
-  debugEcho ev.key & ": " & ev.value
-debugEcho "------------------------"
 
 var
   ins = newFileStream(stdin)
@@ -118,9 +124,14 @@ template getNimsuggest(fileuri: string): Nimsuggest =
 if paramCount() == 1:
   case paramStr(1):
     of "--help":
-      echo "Help information"
+      echo "Usage: nimlsp [OPTION | PATH]\n"
+      echo "--help, shows this message"
+      echo "--version, shows only the version"
+      echo "PATH, path to the Nim source directory, defaults to \"", nimpath, "\""
+      quit 0
     of "--version":
-      echo "0.0.0"
+      echo "nimlsp v", version
+      quit 0
     else: nimpath = expandFilename(paramStr(1))
 if not existsFile(nimpath / "config/nim.cfg"):
   stderr.write "Unable to find \"config/nim.cfg\" in \"" & nimpath & "\". " &

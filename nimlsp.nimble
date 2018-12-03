@@ -9,7 +9,7 @@ bin           = @["nimlsp"]
 
 # Dependencies
 
-requires "nim >= 0.19.0"
+requires "nim >= 0.19.9"
 #requires "packedjson"
 requires "astpatternmatching"
 requires "jsonschema"
@@ -21,4 +21,4 @@ task test, "Runs the test suite":
   exec "nim c -d:debugLogging -d:jsonSchemaDebug -r tests/test_messages2.nim"
 
 task debug, "Builds the language server":
-  exec "nim c --threads:on -d:nimcore -d:nimsuggest -d:debugCommunication -d:debugLogging -d:jsonSchemaDebug -o:nimlsp src/nimlsp"
+  exec "nim c --threads:on -d:nimcore -d:nimsuggest -d:debugCommunication -d:debugLogging -o:nimlsp src/nimlsp"
