@@ -2,13 +2,23 @@
 Nim Language Server Protocol
 ==========
 
-This is the beginning of what might become a `Language Server Protocol
+This is a `Language Server Protocol
 <https://microsoft.github.io/language-server-protocol/>`_ implementation in
-Nim, for Nim. The idea is to wrap nimsuggest and possibly other tools in order
-to supply the actual information while keeping this entirely an interface
-layer. This is intended to be a team effort, so help out in any way you can.
-If you need pointers look at the issues board for something that needs doing,
-or create your own issues if you feel something needs to be done or discussed.
+Nim, for Nim. It is based on nimsuggest, which means that every editor that
+supports LSP will now have the same quality of suggestions that has previously
+only been available in supported editors.
+
+Installing `nimlsp`
+=======
+# TODO: Invest if this works with the git submodule
+The easiest way to install `nimlsp` is to use `nimble` with:
+.. code:: bash
+
+    nimble install nimlsp
+
+This will compile and install it in the `nimble` binary directory, which if
+you've set it up correctly should be in your path. When using `nimlsp` it needs
+to have Nims sources available.
 
 Compile `nimlsp`
 =======
@@ -40,7 +50,7 @@ Status  LSP Command
 ☐ TODO  textDocument/executeCommand
 ☐ TODO  textDocument/format
 ☑ DONE  textDocument/hover
-☐ TODO  textDocument/rename
+☑ DONE  textDocument/rename
 ☑ DONE  textDocument/references
 ☐ TODO  textDocument/signatureHelp
 ☑ DONE  textDocument/publishDiagnostics

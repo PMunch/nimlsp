@@ -116,7 +116,12 @@ template getNimsuggest(fileuri: string): Nimsuggest =
   projectFiles[openFiles[fileuri].projectFile].nimsuggest
 
 if paramCount() == 1:
-  nimpath = expandFilename(paramStr(1))
+  case paramStr(1):
+    of "--help":
+      echo "Help information"
+    of "--version":
+      echo "0.0.0"
+    else: nimpath = expandFilename(paramStr(1))
 if not existsFile(nimpath / "config/nim.cfg"):
   stderr.write "Unable to find \"config/nim.cfg\" in \"" & nimpath & "\". " &
     "Supply the Nim project folder by adding it as an argument.\n"
