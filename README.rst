@@ -11,7 +11,9 @@ only been available in supported editors.
 Installing `nimlsp`
 =======
 The easiest way to install `nimlsp` is to use `nimble` with:
+
 .. code:: bash
+
    nimble install nimlsp
 
 This will compile and install it in the `nimble` binary directory, which if
@@ -27,7 +29,9 @@ Compile `nimlsp`
 If you want more control over the compilation feel free to clone the
 repository. `nimlsp` depends on the `nimsuggest` sources which is in the main
 Nim repository. This means you can either clone the Nim repository with
+
 .. code:: bash
+
    git submodule update --recursive --remote
 
 Or if you don't want a full clone of the Nim sources you can copy just the
@@ -36,11 +40,15 @@ default source path will not work as well so either set it explicitly on
 compilation with `-d:explicitSourcePath=PATH` or on runtime.
 
 To do the standard build run:
+
 .. code:: bash
+
    nimble build
 
 Or if you want debug output when `nimlsp` is running:
+
 .. code:: bash
+
    nimble debug
 
 Supported Protocol features
@@ -85,6 +93,7 @@ overlapping features or achieve this in another way please update this section.
 Now in order to set up LSP itself enter it's settings and add this:
 
 .. code:: json
+
    {
       "clients":
       {
@@ -122,14 +131,17 @@ Vim
 To use `nimlsp` in Vim install the `prabirshrestha/vim-lsp` plugin and
 dependencies:
 
-.. code:: bash
+.. code:: vim
+
    Plugin 'prabirshrestha/asyncomplete.vim'
    Plugin 'prabirshrestha/async.vim'
    Plugin 'prabirshrestha/vim-lsp'
    Plugin 'prabirshrestha/asyncomplete-lsp.vim'
 
 Then set it up to use `nimlsp` for Nim files:
-.. code:: bash
+
+.. code:: vim
+
    if executable('nimlsp')
       au User lsp_setup call lsp#register_server({
         \ 'name': 'nimlsp',
@@ -166,4 +178,5 @@ Run Tests
 Not too many at the moment unfortunately, but they can be run with:
 
 .. code:: bash
+
     nimble test
