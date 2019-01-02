@@ -1,3 +1,4 @@
 [submodule "src/nimlsppkg/Nim"]
 	path = src/nimlsppkg/Nim
 	url = https://github.com/nim-lang/Nim.git
+	branch = devel
