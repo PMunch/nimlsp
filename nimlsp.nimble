@@ -22,3 +22,12 @@ task test, "Runs the test suite":
 
 task debug, "Builds the language server":
   exec "nim c --threads:on -d:nimcore -d:nimsuggest -d:debugCommunication -d:debugLogging -o:nimlsp src/nimlsp"
+
+before install:
+  exec "git submodule update --init --recursive"
+
+before build:
+  exec "git submodule update --init --recursive"
+
+before debug:
+  exec "git submodule update --init --recursive"
