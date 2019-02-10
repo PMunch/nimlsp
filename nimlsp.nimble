@@ -9,7 +9,7 @@ bin           = @["nimlsp"]
 
 # Dependencies
 
-requires "nim >= 0.19.9"
+requires "nim >= 0.19.4"
 #requires "packedjson"
 requires "astpatternmatching"
 requires "jsonschema"
