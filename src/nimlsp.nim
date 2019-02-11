@@ -101,7 +101,7 @@ proc getProjectFile(file: string): string =
     path = dir
     certainty = None
   result = file
-  while path.len > 0:
+  while path.len > 0 and path != "/":
     let
       (dir, fname, ext) = path.splitFile()
       current = fname & ext
