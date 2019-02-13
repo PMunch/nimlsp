@@ -5,7 +5,9 @@ import compiler / ast
 export Suggest
 export IdeCmd
 export NimSuggest
+import os
 export initNimSuggest
+
 
 proc stopNimSuggest*(nimsuggest: NimSuggest): int = 42
 

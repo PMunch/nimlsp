@@ -118,8 +118,24 @@ proc getProjectFile(file: string): string =
       discard
     path = dir
 
+proc findProjectNimFile*( pkg: string): string =
+  var dir = pkg
+  let (_, pkgname, _) = splitFile(pkg)
+  for f in os.walkDirRec(dir, yieldFilter = {pcDir},relative = false ):
+    let x = changeFileExt(f / pkgname, ".nim")
+    if fileExists(x):
+      return x
+
+proc file2project(fileuri:string):string =
+  let path = fileuri[7..^1]
+  for key in projectFiles.keys:
+    debugEcho key
+    if path.find(key) == 0:
+      return key
+  openFiles[fileuri].projectFile
+
 template getNimsuggest(fileuri: string): Nimsuggest =
-  projectFiles[openFiles[fileuri].projectFile].nimsuggest
+  projectFiles[file2project(fileuri)].nimsuggest
 
 if paramCount() == 1:
   case paramStr(1):
@@ -138,6 +154,8 @@ if not existsFile(nimpath / "config/nim.cfg"):
     "Supply the Nim project folder by adding it as an argument.\n"
   quit 1
 
+
+      
 while true:
   try:
     debugEcho "Trying to read frame"
@@ -156,6 +174,17 @@ while true:
           gotShutdown = true
         of "initialize":
           debugEcho "Got initialize request, answering"
+          
+          let params = message["params"].unsafeGet
+          var projectRoot,projectFile:string
+          if params.hasKey("workspaceFolders"):
+            for node in params["workspaceFolders"].getElems:
+              projectRoot = node["uri"].getStr()[7..^1]
+              projectFile = findProjectNimFile(projectRoot)
+              debugEcho projectRoot
+              debugEcho projectFile
+              if not projectFiles.hasKey(projectRoot):
+                projectFiles[projectRoot] = (nimsuggest: initNimsuggest(projectFile,nimpath), openFiles: 0)
           initialized = true
           message.respond(create(InitializeResult, create(ServerCapabilities,
             textDocumentSync = some(create(TextDocumentSyncOptions,
@@ -367,10 +396,12 @@ while true:
               projectFile: projectFile,
               fingerTable: @[]
             )
-            if not projectFiles.hasKey(projectFile):
-              projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
+            let projectRoot = projectFile
+            debugEcho projectRoot
+            if not projectFiles.hasKey(projectRoot):
+              projectFiles[projectRoot] = (nimsuggest: initNimsuggest(fileuri[7..^1], nimpath), openFiles: 1)
             else:
-              projectFiles[projectFile].openFiles += 1
+              projectFiles[projectRoot].openFiles += 1
             for line in textDoc["textDocument"]["text"].getStr.splitLines:
               openFiles[fileuri].fingerTable.add line.createUTFMapping()
               file.writeLine line
@@ -386,7 +417,7 @@ while true:
             file.close()
         of "textDocument/didClose":
           message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
-            let projectFile = getProjectFile(fileuri[7..^1])
+            let projectFile = file2project(fileuri[7..^1])
             debugEcho "Got document close for URI: ", fileuri, " copied to " & filestash
             removeFile(filestash)
             projectFiles[projectFile].openFiles -= 1
