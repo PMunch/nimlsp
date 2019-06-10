@@ -4,7 +4,7 @@ import streams
 import tables
 import strutils
 import os
-import ospaths
+#import ospaths
 import hashes
 
 const
