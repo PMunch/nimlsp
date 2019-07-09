@@ -1,5 +1,5 @@
-import nimlsppkg / [base_protocol, utfmapping, suggestlib]
-include nimlsppkg / messages2
+import nimlsppkg / [baseprotocol, utfmapping, suggestlib]
+include nimlsppkg / messages
 import streams
 import tables
 import strutils

@@ -1,5 +1,5 @@
 import unittest
-include nimlsppkg / messages2
+include nimlsppkg / messages
 #import packedjson
 
 let message = "Hello World"
@@ -13,11 +13,11 @@ suite "Create ResponseError":
 suite "Create ResponseMessage":
     test "Generate a response":
         let res = create(ResponseMessage, "2.0", 100, some(%*{ "result": "Success" }), none(ResponseError))
-        check(getStr(res["result"]["result"]) == "Success")
+        check(getStr(res["result"].unsafeGet()["result"]) == "Success")
     test "Generate an error response":
         let response = create(ResponseMessage, "2.0", 101, none(JsonNode), some(create(ResponseError, ParseError.ord, message, newJNull())))
         check(getInt(response["id"]) == 101)
-        check(getInt(response["error"]["code"]) == ord(ParseError))
+        check(getInt(response["error"].unsafeGet()["code"]) == ord(ParseError))
 
 suite "Read RequestMessage":
     const requestMessage = """{

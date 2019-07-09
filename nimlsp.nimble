@@ -9,16 +9,16 @@ bin           = @["nimlsp"]
 
 # Dependencies
 
-requires "nim >= 0.19.9"
+requires "nim >= 0.20.0"
 #requires "packedjson"
 requires "astpatternmatching"
 requires "jsonschema"
 requires "compiler"
 
 # nimble test does not work for me out of the box
-task test, "Runs the test suite":
+#task test, "Runs the test suite":
   #exec "nim c -r tests/test_messages.nim"
-  exec "nim c -d:debugLogging -d:jsonSchemaDebug -r tests/test_messages2.nim"
+#  exec "nim c -d:debugLogging -d:jsonSchemaDebug -r tests/test_messages2.nim"
 
 task debug, "Builds the language server":
   exec "nim c --threads:on -d:nimcore -d:nimsuggest -d:debugCommunication -d:debugLogging -o:nimlsp src/nimlsp"
@@ -31,3 +31,11 @@ before build:
 
 before debug:
   exec "git submodule update --init --recursive"
+
+before test:
+  if not fileExists("nimlsp"):
+    exec "nimble build"
+
+task findNim, "Tries to find the current Nim installation":
+  echo NimVersion
+  echo currentSourcePath
