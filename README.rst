@@ -32,7 +32,7 @@ Nim repository. This means you can either clone the Nim repository with
 
 .. code:: bash
 
-   git submodule update --recursive --remote
+   git submodule update --init --recursive
 
 Or if you don't want a full clone of the Nim sources you can copy just the
 nimsuggest folder into the `Nim` folder in `src/nimlsppkg`. This means the
