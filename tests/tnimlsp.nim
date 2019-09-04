@@ -1,5 +1,5 @@
 import unittest
-import os, osproc, streams, options, json, posix
+import os, osproc, streams, options, json
 import .. / src / nimlsppkg / baseprotocol
 include .. / src / nimlsppkg / messages
 
@@ -13,7 +13,7 @@ suite "Nim LSP basic operation":
   test "Nim LSP can be initialised":
     var ir = create(RequestMessage, "2.0", 0, "initialize", some(
       create(InitializeParams,
-        processId = getpid().int,
+        processId = getCurrentProcessId(),
         rootPath = none(string),
         rootUri = "file:///tmp/",
         initializationOptions = none(JsonNode),

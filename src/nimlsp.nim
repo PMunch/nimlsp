@@ -108,11 +108,13 @@ type Certainty = enum
   Nimble
 
 proc getProjectFile(file: string): string =
-  let (dir, _, _) = file.splitFile()
+  result = file
+  when defined(windows):
+    result.removePrefix "/"   # ugly fix to "/C:/foo/bar" paths from "file:///C:/foo/bar"
+  let (dir, _, _) = result.splitFile()
   var
     path = dir
     certainty = None
-  result = file
   while path.len > 0 and path != "/":
     let
       (dir, fname, ext) = path.splitFile()
