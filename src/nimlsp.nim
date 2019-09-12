@@ -36,6 +36,11 @@ template debugEcho(args: varargs[string, `$`]) =
     logFile.write("\n\n")
     logFile.flushFile()
 
+debugEcho("Version: " & version)
+debugEcho("explicitSourcePath: " & explicitSourcePath)
+for i in 1..paramCount():
+  debugEcho("Argument " & $i & ": " & paramStr(i))
+
 var
   ins = newFileStream(stdin)
   outs = newFileStream(stdout)

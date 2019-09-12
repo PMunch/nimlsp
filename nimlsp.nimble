@@ -9,11 +9,11 @@ bin           = @["nimlsp"]
 
 # Dependencies
 
-requires "nim >= 0.20.0"
+requires "nim >= 0.20.2"
 #requires "packedjson"
 requires "astpatternmatching"
-requires "jsonschema"
-requires "compiler"
+requires "jsonschema >= 0.2.1"
+requires "compiler >= 0.20.2"
 
 # nimble test does not work for me out of the box
 #task test, "Runs the test suite":
