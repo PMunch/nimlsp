@@ -92,7 +92,7 @@ overlapping features or achieve this in another way please update this section.
 
 Now in order to set up LSP itself enter it's settings and add this:
 
-.. code:: json
+.. code:: js
 
    {
       "clients":
