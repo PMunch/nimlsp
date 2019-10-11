@@ -328,7 +328,7 @@ while true:
                 textEdits["file://" & suggestion.filepath].add create(TextEdit,
                   create(Range,
                     create(Position, suggestion.line-1, suggestion.column),
-                    create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
+                    create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].high)
                   ),
                   renameRequest["newName"].getStr
                 ).JsonNode
