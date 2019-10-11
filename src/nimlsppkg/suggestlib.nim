@@ -1,4 +1,15 @@
-import "./Nim/nimsuggest/nimsuggest.nim"
+#import "./Nim/nimsuggest/nimsuggest.nim"
+import macros, os, strformat
+
+const path = fmt"{currentSourcePath}".parentDir.parentDir.parentDir
+
+macro mImport(path: static[string]): untyped =
+  result = newNimNode(nnkStmtList)
+  result.add(quote do:
+    import `path`
+  )
+
+mImport(path / "nimsuggest" / "nimsuggest.nim")
 import messageenums
 import strutils
 import compiler / ast
