@@ -1,10 +1,14 @@
-# Special configuration file for the Nim project
+import strformat, os
 
+const path = fmt"{currentSourcePath}".parentDir.parentDir.parentDir
+
+writeFile("src/nimlsp.nim.cfg","""
 gc:markAndSweep
 
 hint[XDeclaredButNotUsed]:off
 
 path:"$lib/packages/docutils"
+path:"""" & path & """"
 
 define:useStdoutAsStdmsg
 define:nimsuggest
@@ -22,3 +26,4 @@ define:release
 --warning[Spacing]:off # The JSON schema macro uses a syntax similar to TypeScript
 --warning[CaseTransition]:off
 -d:nimOldCaseObjects
+""")

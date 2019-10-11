@@ -5,6 +5,7 @@ import tables
 import strutils
 import os
 import hashes
+import strformat
 
 const
   storage = "/tmp/nimlsp"
@@ -19,7 +20,7 @@ const
           break
     version
   # This is used to explicitly set the default source path
-  explicitSourcePath {.strdefine.} = currentSourcePath().parentDir() / "nimlsppkg/Nim"
+  explicitSourcePath {.strdefine.} = fmt"{currentSourcePath}".parentDir.parentDir.parentDir
 
 var nimpath = explicitSourcePath
 
@@ -214,6 +215,9 @@ while true:
           )).JsonNode)
         of "textDocument/completion":
           message.textDocumentRequest(CompletionParams, compRequest):
+            debugEcho "Running equivalent of: sug ", fileuri[7..^1], ";", filestash, ":",
+              rawLine + 1, ":",
+              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             let suggestions = getNimsuggest(fileuri).sug(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
@@ -243,6 +247,9 @@ while true:
             message.respond completionItems
         of "textDocument/hover":
           message.textDocumentRequest(TextDocumentPositionParams, hoverRequest):
+            debugEcho "Running equivalent of: def ", fileuri[7..^1], ";", filestash, ":",
+              rawLine + 1, ":",
+              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             let suggestions = getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
@@ -275,6 +282,9 @@ while true:
                 message.respond create(Hover, markedString, rangeopt).JsonNode
         of "textDocument/references":
           message.textDocumentRequest(ReferenceParams, referenceRequest):
+            debugEcho "Running equivalent of: use ", fileuri[7..^1], ";", filestash, ":",
+              rawLine + 1, ":",
+              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             let suggestions = getNimsuggest(fileuri).use(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
@@ -298,6 +308,9 @@ while true:
               message.respond response
         of "textDocument/rename":
           message.textDocumentRequest(RenameParams, renameRequest):
+            debugEcho "Running equivalent of: use ", fileuri[7..^1], ";", filestash, ":",
+              rawLine + 1, ":",
+              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             let suggestions = getNimsuggest(fileuri).use(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
@@ -325,6 +338,9 @@ while true:
               ).JsonNode
         of "textDocument/definition":
           message.textDocumentRequest(TextDocumentPositionParams, definitionRequest):
+            debugEcho "Running equivalent of: def ", fileuri[7..^1], ";", filestash, ":",
+              rawLine + 1, ":",
+              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             let declarations = getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
               rawLine + 1,
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
