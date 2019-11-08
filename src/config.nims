@@ -1,3 +1,3 @@
-import os, strformat
+import os
 
-switch "path", fmt"{currentSourcePath}".parentDir.parentDir.parentDir
+switch "path", getCurrentCompilerExe().parentDir.parentDir
