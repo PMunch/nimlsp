@@ -22,18 +22,6 @@ requires "jsonschema >= 0.2.1"
 task debug, "Builds the language server":
   exec "nim c --threads:on -d:nimcore -d:nimsuggest -d:debugCommunication -d:debugLogging -o:nimlsp src/nimlsp"
 
-before install:
-  exec "nim c -r writeconfig.nim"
-
-before build:
-  exec "nim c -r writeconfig.nim"
-
-before debug:
-  exec "nim c -r writeconfig.nim"
-
-task writeConfig, "Writes the required configuration file":
-  exec "nim c -r writeconfig.nim"
-
 before test:
   if not fileExists("nimlsp"):
     exec "nimble build"
