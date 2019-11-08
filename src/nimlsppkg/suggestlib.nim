@@ -1,7 +1,6 @@
-#import "./Nim/nimsuggest/nimsuggest.nim"
-import macros, os, strformat
+import macros, os
 
-const path = fmt"{currentSourcePath}".parentDir.parentDir.parentDir
+const path = getCurrentCompilerExe().parentDir.parentDir
 
 macro mImport(path: static[string]): untyped =
   result = newNimNode(nnkStmtList)

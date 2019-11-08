@@ -5,7 +5,6 @@ import tables
 import strutils
 import os
 import hashes
-import strformat
 
 const
   storage = "/tmp/nimlsp"
@@ -20,7 +19,7 @@ const
           break
     version
   # This is used to explicitly set the default source path
-  explicitSourcePath {.strdefine.} = fmt"{currentSourcePath}".parentDir.parentDir.parentDir
+  explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
 
 var nimpath = explicitSourcePath
 
