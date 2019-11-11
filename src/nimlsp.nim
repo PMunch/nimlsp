@@ -7,7 +7,7 @@ import os
 import hashes
 
 const
-  storage = "/tmp/nimlsp"
+  storage = getTempDir() / "nimlsp"
   version = block:
     var version = "0.0.0"
     let nimbleFile = staticRead(currentSourcePath().parentDir().parentDir() / "nimlsp.nimble")
@@ -97,11 +97,19 @@ proc pathToUri(path: string): string =
       add(result, '%')
       add(result, toHex(ord(c), 2))
 
+proc parseId(node: JsonNode): int =
+  if node.kind == JString:
+    parseInt(node.getStr)
+  elif node.kind == JInt:
+    node.getInt
+  else:
+    raise newException(MalformedFrame, "Invalid id node: " & repr(node))
+
 proc respond(request: RequestMessage, data: JsonNode) =
-  outs.sendJson create(ResponseMessage, "2.0", request["id"].getInt, some(data), none(ResponseError)).JsonNode
+  outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), some(data), none(ResponseError)).JsonNode
 
 proc error(request: RequestMessage, errorCode: int, message: string, data: JsonNode) =
-  outs.sendJson create(ResponseMessage, "2.0", request["id"].getInt, none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
+  outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
 
 proc notify(notification: string, data: JsonNode) =
   outs.sendJson create(NotificationMessage, "2.0", notification, some(data)).JsonNode
