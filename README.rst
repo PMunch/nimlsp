@@ -173,6 +173,24 @@ This configuration allows you to hit Tab to get auto-complete, and to call
 various functions to rename and get definitions. Of course you are free to
 configure this any way you'd like.
 
+Emacs
+-------
+
+With lsp-mode and use-package:
+
+.. code:: emacs-lisp
+
+   (use-package nim-mode
+     :ensure t
+     :hook
+     (nim-mode . lsp)
+     :commands nim-mode
+     ; https://github.com/jwiegley/use-package#use-package-ensure-system-package
+     :ensure-system-package
+     (nimlsp . "nimble install nimlsp")
+     )
+
+
 Run Tests
 =========
 Not too many at the moment unfortunately, but they can be run with:
