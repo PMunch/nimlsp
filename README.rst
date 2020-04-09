@@ -142,21 +142,27 @@ Then set it up to use `nimlsp` for Nim files:
 
 .. code:: vim
 
-   if executable('nimlsp')
-      au User lsp_setup call lsp#register_server({
-        \ 'name': 'nimlsp',
-        \ 'cmd': {server_info->['nimlsp']},
-        \ 'whitelist': ['nim'],
-        \ })
-   endif
-
+   let s:nimlspexecutable = "nimlsp"
    let g:lsp_log_verbose = 1
    let g:lsp_log_file = expand('/tmp/vim-lsp.log')
-
    " for asyncomplete.vim log
    let g:asyncomplete_log_file = expand('/tmp/asyncomplete.log')
 
    let g:asyncomplete_auto_popup = 0
+
+   if has('win32')
+      let s:nimlspexecutable = "nimlsp.cmd"
+      " Windows has no /tmp directory, but has $TEMP environment variable
+      let g:lsp_log_file = expand('$TEMP/vim-lsp.log')
+      let g:asyncomplete_log_file = expand('$TEMP/asyncomplete.log')
+   endif
+   if executable(s:nimlspexecutable)
+      au User lsp_setup call lsp#register_server({
+      \ 'name': 'nimlsp',
+      \ 'cmd': {server_info->[s:nimlspexecutable]},
+      \ 'whitelist': ['nim'],
+      \ })
+   endif
 
    function! s:check_back_space() abort
        let col = col('.') - 1
