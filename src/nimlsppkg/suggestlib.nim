@@ -1,6 +1,6 @@
 import macros, os
 
-const nimsuggestpath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir / "nimsuggest"
+const explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
 
 macro mImport(path: static[string]): untyped =
   result = newNimNode(nnkStmtList)
@@ -8,7 +8,7 @@ macro mImport(path: static[string]): untyped =
     import `path`
   )
 
-mImport(nimsuggestpath / "nimsuggest.nim")
+mImport(explicitSourcePath / "nimsuggest" / "nimsuggest.nim")
 import messageenums
 import strutils
 import compiler / ast
