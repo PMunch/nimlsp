@@ -50,12 +50,12 @@ var
   openFiles = initTable[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
 
 template whenValid(data, kind, body) =
-  if data.isValid(kind):
+  if data.isValid(kind, allowExtra = true):
     var data = kind(data)
     body
 
 template whenValid(data, kind, body, elseblock) =
-  if data.isValid(kind):
+  if data.isValid(kind, allowExtra = true):
     var data = kind(data)
     body
   else:
