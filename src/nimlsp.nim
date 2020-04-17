@@ -53,6 +53,8 @@ template whenValid(data, kind, body) =
   if data.isValid(kind, allowExtra = true):
     var data = kind(data)
     body
+  else:
+    debugEcho("Unable to parse data as " & $kind)
 
 template whenValid(data, kind, body, elseblock) =
   if data.isValid(kind, allowExtra = true):
@@ -440,7 +442,7 @@ while true:
           message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
             if textDoc["text"].isSome:
               let file = open(filestash, fmWrite)
-              debugEcho "Got document change for URI: ", fileuri, " saving to ", filestash
+              debugEcho "Got document save for URI: ", fileuri, " saving to ", filestash
               openFiles[fileuri].fingerTable = @[]
               for line in textDoc["text"].unsafeGet.getStr.splitLines:
                 openFiles[fileuri].fingerTable.add line.createUTFMapping()
@@ -448,7 +450,7 @@ while true:
               file.close()
             debugEcho "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
             let diagnostics = getNimsuggest(fileuri).chk(fileuri[7..^1], dirtyfile = filestash)
-            debugEcho "Found suggestions: ",
+            debugEcho "Got diagnostics: ",
               diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
               (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
             if diagnostics.len == 0:
@@ -470,7 +472,7 @@ while true:
                     create(Position, diagnostic.line-1, diagnostic.column),
                     create(Position, diagnostic.line-1, max(diagnostic.column, endcolumn))
                   ),
-                  some(case diagnostic.qualifiedPath.join("."): # This might be forth instead
+                  some(case diagnostic.forth:
                     of "Error": DiagnosticSeverity.Error.int
                     of "Hint": DiagnosticSeverity.Hint.int
                     of "Warning": DiagnosticSeverity.Warning.int

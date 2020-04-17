@@ -27,19 +27,20 @@ proc `$`*(suggestion: Suggest): string =
   result.add sep
   result.add "qualifiedPath: " & suggestion.qualifiedPath.join(".")
   result.add sep
-  result.add suggestion.forth
+  result.add "forth: " & suggestion.forth
   result.add sep
-  result.add suggestion.filePath
+  result.add "filePath: " & suggestion.filePath
   result.add sep
-  result.add $suggestion.line
+  result.add "line: " & $suggestion.line
   result.add sep
-  result.add $suggestion.column
+  result.add "column: " & $suggestion.column
   result.add sep
-  result.add $suggestion.quality
+  result.add "quality: " & $suggestion.quality
   result.add sep
-  result.add $suggestion.line
+  result.add "line: " & $suggestion.line
   result.add sep
-  result.add $suggestion.prefix
+  result.add "prefix: " & $suggestion.prefix
+  result.add ")"
 
 func nimSymToLSPKind*(suggest: Suggest): CompletionItemKind =
   case $suggest.symKind.TSymKind:
