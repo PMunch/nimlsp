@@ -183,12 +183,7 @@ With lsp-mode and use-package:
    (use-package nim-mode
      :ensure t
      :hook
-     (nim-mode . lsp)
-     :commands nim-mode
-     ; https://github.com/jwiegley/use-package#use-package-ensure-system-package
-     :ensure-system-package
-     (nimlsp . "nimble install nimlsp")
-     )
+     (nim-mode . lsp))
 
 
 Run Tests
