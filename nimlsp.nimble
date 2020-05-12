@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.3"
+version       = "0.2.4"
 author        = "PMunch"
 description   = "Nim Language Server Protocol - nimlsp implements the Language Server Protocol"
 license       = "MIT"

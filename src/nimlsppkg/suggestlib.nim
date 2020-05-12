@@ -35,6 +35,8 @@ proc `$`*(suggestion: Suggest): string =
   result.add sep
   result.add "column: " & $suggestion.column
   result.add sep
+  result.add "doc: " & $suggestion.doc
+  result.add sep
   result.add "quality: " & $suggestion.quality
   result.add sep
   result.add "line: " & $suggestion.line
