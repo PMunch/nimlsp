@@ -412,6 +412,7 @@ while true:
               fingerTable: @[]
             )
             if not projectFiles.hasKey(projectFile):
+              debugEcho "Initialising project with ", projectFile, ":", nimpath
               projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
             else:
               projectFiles[projectFile].openFiles += 1
@@ -463,6 +464,8 @@ while true:
               for diagnostic in diagnostics:
                 if diagnostic.line == 0:
                   continue
+                if diagnostic.filePath != fileuri[7..^1]:
+                  continue
                 # Try to guess the size of the identifier
                 let
                   message = diagnostic.nimDocstring
@@ -491,3 +494,6 @@ while true:
       continue
   except IOError:
     break
+  except CatchableError as e:
+    debugEcho "Got exception: ", e.msg
+    continue
