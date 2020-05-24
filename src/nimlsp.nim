@@ -232,7 +232,7 @@ while true:
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
             debugEcho "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+              (if suggestions.len > 0 : suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)]  else: newSeq[Suggest]() ),
               (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
             var completionItems = newJarray()
             for suggestion in suggestions:
@@ -413,7 +413,7 @@ while true:
             )
             if not projectFiles.hasKey(projectFile):
               debugEcho "Initialising project with ", projectFile, ":", nimpath
-              projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
+              projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile.replace("%3A",":"), nimpath), openFiles: 1)
             else:
               projectFiles[projectFile].openFiles += 1
             for line in textDoc["textDocument"]["text"].getStr.splitLines:
