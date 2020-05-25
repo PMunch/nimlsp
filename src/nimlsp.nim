@@ -167,7 +167,7 @@ if not existsFile(nimpath / "config/nim.cfg"):
   stderr.write "Unable to find \"config/nim.cfg\" in \"" & nimpath & "\". " &
     "Supply the Nim project folder by adding it as an argument.\n"
   quit 1
-
+{.effects.}
 while true:
   try:
     debugEcho "Trying to read frame"
@@ -265,7 +265,7 @@ while true:
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
             debugEcho "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+              (if suggestions.len > 0 : suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)]  else: newSeq[Suggest]() ),
               (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
             if suggestions.len == 0:
               message.respond newJNull()
@@ -300,7 +300,7 @@ while true:
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
             debugEcho "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+              (if suggestions.len > 0 : suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)]  else: newSeq[Suggest]() ),
               (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
             var response = newJarray()
             for suggestion in suggestions:
@@ -326,7 +326,7 @@ while true:
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
             debugEcho "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+              (if suggestions.len > 0 : suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)]  else: newSeq[Suggest]() ),
               (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
             if suggestions.len == 0:
               message.respond newJNull()
@@ -356,7 +356,7 @@ while true:
               openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             )
             debugEcho "Found suggestions: ",
-              declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
+              (if declarations.len > 0 : declarations[0..(if declarations.len > 10: 10 else: declarations.high)]  else: newSeq[Suggest]() ),
               (if declarations.len > 10: " and " & $(declarations.len-10) & " more" else: "")
             if declarations.len == 0:
               message.respond newJNull()
@@ -453,7 +453,7 @@ while true:
             debugEcho "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
             let diagnostics = getNimsuggest(fileuri).chk(fileuri[7..^1], dirtyfile = filestash)
             debugEcho "Got diagnostics: ",
-              diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
+              (if diagnostics.len > 0 : diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)]  else: newSeq[Suggest]() ),
               (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
             if diagnostics.len == 0:
               notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
@@ -498,3 +498,4 @@ while true:
   except CatchableError as e:
     debugEcho "Got exception: ", e.msg
     continue
+  
