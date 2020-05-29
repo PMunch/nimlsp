@@ -5,6 +5,7 @@ import tables
 import strutils
 import os
 import hashes
+import uri
 
 const
   storage = getTempDir() / "nimlsp"
@@ -123,7 +124,7 @@ type Certainty = enum
   Nimble
 
 proc getProjectFile(file: string): string =
-  result = file
+  result = file.decodeUrl
   when defined(windows):
     result.removePrefix "/"   # ugly fix to "/C:/foo/bar" paths from "file:///C:/foo/bar"
   let (dir, _, _) = result.splitFile()
