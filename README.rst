@@ -10,34 +10,35 @@ only been available in supported editors.
 
 Installing `nimlsp`
 =======
-The easiest way to install `nimlsp` is to use `nimble` with:
+If you have installed Nim through `choosenim` (recommended) the easiest way to
+install `nimlsp` is to use `nimble` with:
 
 .. code:: bash
 
    nimble install nimlsp
 
 This will compile and install it in the `nimble` binary directory, which if
-you've set it up correctly should be in your path. When using `nimlsp` it needs
-to have Nims sources available to know the types in the standard library. This
-defaults to something that should work with the regular installation, but you
-can set it on compile-time with `-d:explicitSourcePath=PATH`, or on runtime by
-supplying it as an argument to `nimlsp`. How exectly to do that will depend on
-the LSP client.
+you have set up `nimble` correctly it should be in your path. When compiling
+and using `nimlsp` it needs to have Nims sources available in order to work.
+With Nim installed through `choosenim` these should already be on your system
+and `nimlsp` should be able to find and use them automatically. However if you
+have installed `nimlsp` in a different way you might run into issues where it
+can't find certain files during compilation/running. To fix this you need to
+grab a copy of Nim sources and then point `nimlsp` at them on compile-time by
+using `-d:explicitSourcePath=PATH`, where `PATH` is where you have your Nim
+sources. You can also pass them at run-time (if for example you're working with
+a custom copy of the stdlib by passing it as an argument to `nimlsp`. How
+exectly to do that will depend on the LSP client.
 
 Compile `nimlsp`
 =======
 If you want more control over the compilation feel free to clone the
 repository. `nimlsp` depends on the `nimsuggest` sources which is in the main
-Nim repository. This means you can either clone the Nim repository with
-
-.. code:: bash
-
-   git submodule update --init --recursive
-
-Or if you don't want a full clone of the Nim sources you can copy just the
-nimsuggest folder into the `Nim` folder in `src/nimlsppkg`. This means the
-default source path will not work as well so either set it explicitly on
-compilation with `-d:explicitSourcePath=PATH` or on runtime.
+Nim repository, so make you you have a copy of that somewhere. Manually having a
+copy of Nim this way means the default source path will not work so you need to
+set it explicitly on compilation with `-d:explicitSourcePath=PATH` and point to
+it on runtime (technically the runtime should only need the stdlib, so omitting
+it will make `nimlsp` try to find it from your Nim install).
 
 To do the standard build run:
 
@@ -50,6 +51,12 @@ Or if you want debug output when `nimlsp` is running:
 .. code:: bash
 
    nimble debug
+
+Or if you want even more debug output from the LSP format:
+
+.. code:: bash
+
+   nimble debug -d:debugLogging
 
 Supported Protocol features
 =======
