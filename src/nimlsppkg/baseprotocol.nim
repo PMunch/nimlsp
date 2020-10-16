@@ -1,7 +1,7 @@
 import streams, strutils, parseutils, json
 
 type
-  BaseProtocolError* = object of Exception
+  BaseProtocolError* = object of Defect
 
   MalformedFrame* = object of BaseProtocolError
   UnsupportedEncoding* = object of BaseProtocolError

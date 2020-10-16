@@ -163,7 +163,7 @@ if paramCount() == 1:
       echo "nimlsp v", version
       quit 0
     else: nimpath = expandFilename(paramStr(1))
-if not existsFile(nimpath / "config/nim.cfg"):
+if not fileExists(nimpath / "config/nim.cfg"):
   stderr.write "Unable to find \"config/nim.cfg\" in \"" & nimpath & "\". " &
     "Supply the Nim project folder by adding it as an argument.\n"
   quit 1
