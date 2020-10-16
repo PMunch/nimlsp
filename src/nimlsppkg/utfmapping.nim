@@ -1,4 +1,3 @@
-import tables
 import unicode
 
 type FingerTable = seq[tuple[u16pos, offset: int]]
