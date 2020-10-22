@@ -198,6 +198,23 @@ With lsp-mode and use-package:
      :hook
      (nim-mode . lsp))
 
+Intellij
+-------
+You will need to install the `LSP support plugin <https://plugins.jetbrains.com/plugin/10209-lsp-support>`_.
+For syntax highlighting i would recommend the "official" `nim plugin <https://plugins.jetbrains.com/plugin/15128-nim>`_
+(its not exactly official, but its developed by an intellij dev), the plugin will eventually use nimsuggest and have support for 
+all this things and probably more, but since its still very new most of the features are still not implemented, so the LSP is a
+decent solution (and the only one really).
+
+To use it:
+
+1. Install the LSP and the nim plugin.
+
+2. Go into settings > Language & Frameworks > Language Server Protocol > Server Definitions.
+
+3. Set the LSP mode to `executable`, the extension to `nim` and in the Path, the path to your nimlsp executable.
+
+4. Hit apply and everything should be working now.
 
 Run Tests
 =========
