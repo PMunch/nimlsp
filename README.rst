@@ -72,7 +72,7 @@ Status  LSP Command
 ☑ DONE  textDocument/completion
 ☑ DONE  textDocument/definition
 ☐ TODO  textDocument/documentHighlight
-☐ TODO  textDocument/documentSymbol
+☑ TODO  textDocument/documentSymbol
 ☐ TODO  textDocument/executeCommand
 ☐ TODO  textDocument/format
 ☑ DONE  textDocument/hover
