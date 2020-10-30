@@ -68,6 +68,7 @@ func nimSymToLSPKind*(suggest: byte): SymbolKind =
   of "skConst": SymbolKind.Constant
   of "skEnumField": SymbolKind.EnumMember
   of "skIterator": SymbolKind.Function
+  of "skConverter": SymbolKind.Function
   of "skLet": SymbolKind.Variable
   of "skMacro": SymbolKind.Function
   of "skMethod": SymbolKind.Method
@@ -76,7 +77,7 @@ func nimSymToLSPKind*(suggest: byte): SymbolKind =
   of "skType": SymbolKind.Class
   of "skVar": SymbolKind.Variable
   of "skFunc": SymbolKind.Function
-  else: SymbolKind.Property
+  else: SymbolKind.Function
 
 func nimSymDetails*(suggest: Suggest): string =
   case $suggest.symKind.TSymKind:
