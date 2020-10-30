@@ -385,7 +385,6 @@ while true:
             else:
               var response = newJarray()
               for sym in syms.sortedByIt((it.line,it.column,it.quality)):
-                debugEcho $sym
                 if sym.qualifiedPath.len != 2:
                   continue
                 response.add create(
