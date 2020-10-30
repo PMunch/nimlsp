@@ -6,6 +6,7 @@ import strutils
 import os
 import hashes
 import uri
+import algorithm
 
 const
   storage = getTempDir() / "nimlsp"
@@ -72,9 +73,10 @@ template textDocumentRequest(message, kind, name, body) {.dirty.} =
         fileuri = name["textDocument"]["uri"].getStr
         filestash = storage / (hash(fileuri).toHex & ".nim" )
       debugEcho "Got request for URI: ", fileuri, " copied to " & filestash
-      let
-        rawLine = name["position"]["line"].getInt
-        rawChar = name["position"]["character"].getInt
+      when kind isnot DocumentSymbolParams:
+        let
+          rawLine = name["position"]["line"].getInt
+          rawChar = name["position"]["character"].getInt
       body
 
 template textDocumentNotification(message, kind, name, body) {.dirty.} =
@@ -209,7 +211,7 @@ while true:
             implementationProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
             referencesProvider = some(true), #?: bool
             documentHighlightProvider = none(bool), #?: bool
-            documentSymbolProvider = none(bool), #?: bool
+            documentSymbolProvider = some(true), #?: bool
             workspaceSymbolProvider = none(bool), #?: bool
             codeActionProvider = none(bool), #?: bool
             codeLensProvider = none(CodeLensOptions), #?: CodeLensOptions
@@ -371,7 +373,36 @@ while true:
                   )
                 ).JsonNode
               message.respond response
-
+        of "textDocument/documentSymbol":
+          message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
+            debugEcho "Running equivalent of: outline ", fileuri[7..^1], ";", filestash
+            let syms = getNimsuggest(fileuri).outline(fileuri[7..^1], dirtyfile = filestash)
+            debugEcho "Found outlines: ",
+              syms[0..(if syms.len > 10: 10 else: syms.high)],
+              (if syms.len > 10: " and " & $(syms.len-10) & " more" else: "")
+            if syms.len == 0:
+              message.respond newJNull()
+            else:
+              var response = newJarray()
+              for sym in syms.sortedByIt((it.line,it.column,it.quality)):
+                debugEcho $sym
+                if sym.qualifiedPath.len != 2:
+                  continue
+                response.add create(
+                  SymbolInformation,
+                  sym.name[],
+                  nimSymToLSPKind(sym.symKind).int,
+                  some(false),
+                  create(Location,
+                  "file://" & pathToUri(sym.filepath),
+                    create(Range,
+                      create(Position, sym.line-1, sym.column),
+                      create(Position, sym.line-1, sym.column + sym.qualifiedPath[^1].len)
+                    )
+                  ),
+                  none(string)
+                ).JsonNode
+              message.respond response
         #of "textDocument/signatureHelp":
         #  if message["params"].isSome:
         #    let signRequest = message["params"].unsafeGet
