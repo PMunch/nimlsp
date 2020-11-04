@@ -1,4 +1,4 @@
-import nimlsppkg / [baseprotocol, utfmapping, suggestlib]
+import nimlsppkg / [baseprotocol, utfmapping, suggestlib, prettylib]
 include nimlsppkg / messages
 import streams
 import tables
@@ -73,7 +73,7 @@ template textDocumentRequest(message, kind, name, body) {.dirty.} =
         fileuri = name["textDocument"]["uri"].getStr
         filestash = storage / (hash(fileuri).toHex & ".nim" )
       debugEcho "Got request for URI: ", fileuri, " copied to " & filestash
-      when kind isnot DocumentSymbolParams:
+      when kind isnot DocumentSymbolParams and kind isnot DocumentFormattingParams:
         let
           rawLine = name["position"]["line"].getInt
           rawChar = name["position"]["character"].getInt
@@ -215,7 +215,7 @@ while true:
             workspaceSymbolProvider = none(bool), #?: bool
             codeActionProvider = none(bool), #?: bool
             codeLensProvider = none(CodeLensOptions), #?: CodeLensOptions
-            documentFormattingProvider = none(bool), #?: bool
+            documentFormattingProvider = some(true), #?: bool
             documentRangeFormattingProvider = none(bool), #?: bool
             documentOnTypeFormattingProvider = none(DocumentOnTypeFormattingOptions), #?: DocumentOnTypeFormattingOptions
             renameProvider = some(true), #?: bool
@@ -402,6 +402,25 @@ while true:
                   none(string)
                 ).JsonNode
               message.respond response
+        of "textDocument/formatting":
+          message.textDocumentRequest(DocumentFormattingParams, documentFormattingRequest):
+            let infile = fileuri[7..^1]
+            let dirtyfile = filestash
+            let params = message["params"].unsafeGet
+            let tabSize = params["tabSize"].getInt
+            var opt = PrettyOptions(indWidth: tabSize, maxLineLen: 80)
+            prettyPrintFile(infile, dirtyfile, opt)
+            let newText = readFile(dirtyfile)
+            let lines = countLines(newText)
+            var response = newJarray()
+            response.add create(TextEdit,
+              create(Range,
+                  create(Position, 0, 0),
+                  create(Position, lines, 999)
+              ),
+              newText
+            ).JsonNode
+            message.respond response
         #of "textDocument/signatureHelp":
         #  if message["params"].isSome:
         #    let signRequest = message["params"].unsafeGet

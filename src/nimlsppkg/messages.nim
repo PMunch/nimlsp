@@ -573,7 +573,7 @@ jsonSchema:
     textDocument: TextDocumentIdentifier
     options: any # FormattingOptions
 
-  #FormattingOptions:
+  # FormattingOptions:
   #  tabSize: int or float
   #  insertSpaces: bool
   #  [key: string]: boolean | int or float | string (jsonschema doesn't support variable key objects)
