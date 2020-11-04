@@ -164,7 +164,8 @@ if paramCount() == 1:
     of "--version":
       echo "nimlsp v", version
       quit 0
-    else: nimpath = expandFilename(paramStr(1))
+    else: 
+      nimpath = expandFilename(paramStr(1))
 if not fileExists(nimpath / "config/nim.cfg"):
   stderr.write "Unable to find \"config/nim.cfg\" in \"" & nimpath & "\". " &
     "Supply the Nim project folder by adding it as an argument.\n"
@@ -409,6 +410,7 @@ while true:
             let params = message["params"].unsafeGet
             let tabSize = params["tabSize"].getInt
             var opt = PrettyOptions(indWidth: tabSize, maxLineLen: 80)
+            debugEcho "Formatting infile: ", infile, " outfile: ", dirtyfile
             prettyPrintFile(infile, dirtyfile, opt)
             let newText = readFile(dirtyfile)
             let lines = countLines(newText)
