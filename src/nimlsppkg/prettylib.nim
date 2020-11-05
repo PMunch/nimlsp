@@ -9,7 +9,7 @@ macro mImport(path: static[string]): untyped =
   )
 
 mImport(explicitSourcePath / "nimpretty" / "nimpretty.nim")
-export nimpretty
+export PrettyOptions
 
 proc prettyPrintFile*(infile, outfile: string, opt: PrettyOptions) =
   prettyPrint(infile, outfile, opt)

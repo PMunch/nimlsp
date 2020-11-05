@@ -459,14 +459,14 @@ while true:
             let
               file = open(filestash, fmWrite)
               projectFile = getProjectFile(fileuri[7..^1])
-            debugEcho "New document opened for URI: ", fileuri, " saving to " & filestash
+            debugEcho "New document opened for URI: ", fileuri, " \nsaving to " & filestash
             openFiles[fileuri] = (
               #nimsuggest: initNimsuggest(fileuri[7..^1]),
               projectFile: projectFile,
               fingerTable: @[]
             )
             if not projectFiles.hasKey(projectFile):
-              debugEcho "Initialising project with ", projectFile, ":", nimpath
+              debugEcho "Initialising project with project file: ", projectFile, "\nnimpath: ", nimpath
               projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
             else:
               projectFiles[projectFile].openFiles += 1
