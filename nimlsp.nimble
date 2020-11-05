@@ -20,7 +20,7 @@ requires "jsonschema >= 0.2.1"
 #  exec "nim c -d:debugLogging -d:jsonSchemaDebug -r tests/test_messages2.nim"
 
 task debug, "Builds the language server":
-  exec "nim c --threads:on -d:nimcore -d:nimpretty -d:nimsuggest -d:debugCommunication -d:debugLogging -o:nimlsp src/nimlsp"
+  exec "nim c --threads:on -d:nimcore -d:nimsuggest -d:nimpretty -d:debugCommunication -d:debugLogging -o:nimlsp src/nimlsp"
 
 before test:
   if not fileExists("nimlsp"):
