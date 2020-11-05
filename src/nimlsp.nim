@@ -176,8 +176,9 @@ while true:
     debugEcho "Trying to read frame"
     let frame = ins.readFrame
     debugEcho "Got frame:\n" & frame
-    let message = frame.parseJson
-    whenValid(message, RequestMessage):
+    let msg = frame.parseJson
+    if msg.isValid(RequestMessage):
+      let message = RequestMessage(msg)
       debugEcho "Got valid Request message of type " & message["method"].getStr
       if not initialized and message["method"].getStr != "initialize":
         message.error(-32002, "Unable to accept requests before being initialized", newJNull())
@@ -439,7 +440,8 @@ while true:
         else:
           debugEcho "Unknown request"
       continue
-    whenValid(message, NotificationMessage):
+    elif msg.isValid(NotificationMessage):
+      let message = NotificationMessage(msg)
       debugEcho "Got valid Notification message of type " & message["method"].getStr
       if not initialized and message["method"].getStr != "exit":
         continue
@@ -544,6 +546,7 @@ while true:
         else:
           debugEcho "Got unknown notification message"
       continue
+    
   except IOError:
     break
   except CatchableError as e:
