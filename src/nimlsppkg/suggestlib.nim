@@ -101,26 +101,27 @@ func nimDocstring*(suggest: Suggest): string =
   suggest.doc
 
 macro createCommands(fileOnly:static[bool] = false, commands: varargs[untyped]) =
+  
   result = nnkStmtList.newTree
   for cmd in commands:
     let cmdStr = cmd.strVal
     var params = nnkFormalParams.newTree(
         nnkBracketExpr.newTree(
-          newIdentNode("seq"),
-          newIdentNode("Suggest")
+          ident("seq"),
+          ident"Suggest"
         ),
         nnkIdentDefs.newTree(
-          newIdentNode("nimsuggest"),
-          newIdentNode("NimSuggest"),
+          ident("nimsuggest"),
+          ident("NimSuggest"),
           newEmptyNode()
         ),
         nnkIdentDefs.newTree(
-          newIdentNode("file"),
-          newIdentNode("string"),
+          ident("file"),
+          ident("string"),
           newEmptyNode()
         ),
         nnkIdentDefs.newTree(
-          newIdentNode("dirtyfile"),
+          ident("dirtyfile"),
           newEmptyNode(),
           newLit("")
         ),
@@ -128,42 +129,42 @@ macro createCommands(fileOnly:static[bool] = false, commands: varargs[untyped]) 
       )
     if not fileOnly:
       params.add nnkIdentDefs.newTree(
-          newIdentNode("line"),
-          newIdentNode("int"),
+          ident("line"),
+          ident("int"),
           newEmptyNode()
         )
       params.add nnkIdentDefs.newTree(
-          newIdentNode("col"),
-          newIdentNode("int"),
+          ident("col"),
+          ident("int"),
           newEmptyNode()
         )
     var call = nnkCall.newTree(
       nnkDotExpr.newTree(
-        newIdentNode("nimsuggest"),
-        newIdentNode("runCmd")
+        ident("nimsuggest"),
+        ident("runCmd")
       ),
       ident("ide" & cmdStr)
       ,
       nnkCommand.newTree(
-        newIdentNode("AbsoluteFile"),
-        newIdentNode("file")
+        ident("AbsoluteFile"),
+        ident("file")
       ),
       nnkCommand.newTree(
-        newIdentNode("AbsoluteFile"),
-        newIdentNode("dirtyfile")
+        ident("AbsoluteFile"),
+        ident("dirtyfile")
       )
     )
     if not fileOnly:
-      call.add newIdentNode("line")
-      call.add newIdentNode("col")
+      call.add ident("line")
+      call.add ident("col")
     else:
       call.add newLit(0)
       call.add newLit(0)
     result.add nnkStmtList.newTree(
     nnkProcDef.newTree(
       nnkPostfix.newTree(
-        newIdentNode("*"),
-        newIdentNode(cmdStr)
+        ident("*"),
+        ident(cmdStr)
       ),
       newEmptyNode(),
       newEmptyNode(),
@@ -181,7 +182,7 @@ createCommands(true,chk,highlight,outline,known)
 
 when isMainModule:
   var graph = initNimSuggest(currentSourcePath, nimPath = getCurrentCompilerExe().parentDir.parentDir)
-  var suggestions = graph.sug(currentSourcePath, currentSourcePath, 184, 26)
+  var suggestions = graph.sug(currentSourcePath, currentSourcePath, 185, 26)
   echo "Got ", suggestions.len, " suggestions"
   for suggestion in suggestions:
     echo suggestion

@@ -1,4 +1,6 @@
-import nimlsppkg / [baseprotocol, utfmapping, suggestlib, prettylib]
+import nimlsppkg / [baseprotocol, utfmapping, suggestlib]
+when defined(nimpretty):
+  import nimlsppkg / prettylib
 include nimlsppkg / messages
 import streams
 import tables
@@ -175,7 +177,6 @@ while true:
   try:
     debugEcho "Trying to read frame"
     let frame = ins.readFrame
-    debugEcho "Got frame:\n" & frame
     let msg = frame.parseJson
     if msg.isValid(RequestMessage):
       let message = RequestMessage(msg)
@@ -410,19 +411,20 @@ while true:
             let dirtyfile = filestash
             let params = message["params"].unsafeGet
             let tabSize = params["tabSize"].getInt
-            var opt = PrettyOptions(indWidth: tabSize, maxLineLen: 80)
-            debugEcho "Formatting infile: ", infile, " outfile: ", dirtyfile
-            prettyPrintFile(infile, dirtyfile, opt)
-            let newText = readFile(dirtyfile)
-            let lines = countLines(newText)
             var response = newJarray()
-            response.add create(TextEdit,
+            when defined(nimpretty):
+              var opt = PrettyOptions(indWidth: tabSize, maxLineLen: 80)
+              debugEcho "Formatting infile: ", infile, " outfile: ", dirtyfile
+              prettyPrintFile(infile, dirtyfile, opt)
+              let newText = readFile(dirtyfile)
+              let lines = countLines(newText)
+              response.add create(TextEdit,
               create(Range,
                   create(Position, 0, 0),
                   create(Position, lines, 999)
-              ),
-              newText
-            ).JsonNode
+                ),
+                newText
+              ).JsonNode
             message.respond response
         #of "textDocument/signatureHelp":
         #  if message["params"].isSome:
@@ -546,7 +548,8 @@ while true:
         else:
           debugEcho "Got unknown notification message"
       continue
-    
+    else:
+      debugEcho "Got unknown message" & frame
   except IOError:
     break
   except CatchableError as e:
