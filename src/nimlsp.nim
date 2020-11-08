@@ -1,4 +1,4 @@
-import nimlsppkg / [baseprotocol, utfmapping, suggestlib]
+import nimlsppkg / [baseprotocol, utfmapping, suggestlib, logger]
 include nimlsppkg / messages
 import streams
 import tables
@@ -9,7 +9,6 @@ import uri
 import algorithm
 
 const
-  storage = getTempDir() / "nimlsp"
   version = block:
     var version = "0.0.0"
     let nimbleFile = staticRead(currentSourcePath().parentDir().parentDir() / "nimlsp.nimble")
@@ -26,17 +25,6 @@ const
 var nimpath = explicitSourcePath
 
 discard existsOrCreateDir(storage)
-
-when defined(debugLogging):
-  var logFile = open(storage / "nimlsp.log", fmWrite)
-
-template debug(args: varargs[string, `$`]) =
-  when defined(debugLogging):
-    stderr.write(join args)
-    stderr.write("\n")
-    logFile.write(join args)
-    logFile.write("\n\n")
-    logFile.flushFile()
 
 debug("Version: " & version)
 debug("explicitSourcePath: " & explicitSourcePath)

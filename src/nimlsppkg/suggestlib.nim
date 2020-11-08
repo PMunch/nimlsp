@@ -1,4 +1,5 @@
 import macros, os
+import logger
 
 const explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
 
@@ -157,6 +158,32 @@ macro createCommands(fileOnly:static[bool] = false, commands: varargs[untyped]) 
     else:
       call.add newLit(0)
       call.add newLit(0)
+    var tryCatch = nnkTryStmt.newTree(
+      nnkStmtList.newTree(
+        nnkAsgn.newTree(
+          newIdentNode("result"),
+          call
+        )
+      ),
+      nnkExceptBranch.newTree(
+        nnkInfix.newTree(
+          newIdentNode("as"),
+          newIdentNode("Exception"),
+          newIdentNode("e")
+        ),
+        nnkStmtList.newTree(
+          nnkCommand.newTree(
+            newIdentNode("debug"),
+            nnkPrefix.newTree(
+              newIdentNode("$"),
+              nnkCall.newTree(
+                newIdentNode("getStackTraceEntries")
+              )
+            )
+          )
+        )
+      )
+    )
     result.add nnkStmtList.newTree(
     nnkProcDef.newTree(
       nnkPostfix.newTree(
@@ -169,7 +196,7 @@ macro createCommands(fileOnly:static[bool] = false, commands: varargs[untyped]) 
       newEmptyNode(),
       newEmptyNode(),
       nnkStmtList.newTree(
-       call
+       tryCatch
         )
       )
     )
