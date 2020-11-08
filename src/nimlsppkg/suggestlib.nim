@@ -95,9 +95,6 @@ func nimSymDetails*(suggest: Suggest): string =
   of "skVar": "var of " & suggest.forth
   else: suggest.forth
 
-func nimDocstring*(suggest: Suggest): string =
-  suggest.doc
-
 macro createCommands(fileOnly:static[bool] = false, commands: varargs[untyped]) =
   
   result = nnkStmtList.newTree
@@ -206,7 +203,7 @@ createCommands(true,chk,highlight,outline,known)
 
 when isMainModule:
   var graph = initNimSuggest(currentSourcePath, nimPath = getCurrentCompilerExe().parentDir.parentDir)
-  var suggestions = graph.sug(currentSourcePath, currentSourcePath, 185, 26)
+  var suggestions = graph.sug(currentSourcePath, currentSourcePath, 206, 26)
   echo "Got ", suggestions.len, " suggestions"
   for suggestion in suggestions:
     echo suggestion

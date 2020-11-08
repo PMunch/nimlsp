@@ -230,7 +230,7 @@ while true:
                 label = suggestion.qualifiedPath[^1],
                 kind = some(nimSymToLSPKind(suggestion).int),
                 detail = some(nimSymDetails(suggestion)),
-                documentation = some(suggestion.nimDocstring),
+                documentation = some(suggestion.doc),
                 deprecated = none(bool),
                 preselect = none(bool),
                 sortText = none(string),
@@ -273,7 +273,7 @@ while true:
                 message.respond create(Hover,
                   @[
                     markedString,
-                    create(MarkedStringOption, "", suggestions[0].nimDocstring),
+                    create(MarkedStringOption, "", suggestions[0].doc),
                   ],
                   rangeopt
                 ).JsonNode
@@ -487,7 +487,7 @@ while true:
                   continue
                 # Try to guess the size of the identifier
                 let
-                  message = diagnostic.nimDocstring
+                  message = diagnostic.doc
                   endcolumn = diagnostic.column + message.rfind('\'') - message.find('\'') - 1
                 response.add create(Diagnostic,
                   create(Range,
