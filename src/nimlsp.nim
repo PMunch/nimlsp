@@ -51,43 +51,41 @@ var
   projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: int]]()
   openFiles = initTable[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
 
-template whenValid(data, kind, body) =
-  if data.isValid(kind, allowExtra = true):
-    var data = kind(data)
-    body
-  else:
-    debugEcho("Unable to parse data as " & $kind)
-
-template whenValid(data, kind, body, elseblock) =
-  if data.isValid(kind, allowExtra = true):
-    var data = kind(data)
-    body
-  else:
-    elseblock
-
-template textDocumentRequest(message, kind, name, body) {.dirty.} =
+template textDocumentRequest(message, kind, name, body) =
   if message["params"].isSome:
-    let name = message["params"].unsafeGet
-    whenValid(name, kind):
-      let
-        fileuri = name["textDocument"]["uri"].getStr
-        filestash = storage / (hash(fileuri).toHex & ".nim" )
-      debugEcho "Got request for URI: ", fileuri, " copied to " & filestash
-      when kind isnot DocumentSymbolParams:
-        let
-          rawLine = name["position"]["line"].getInt
-          rawChar = name["position"]["character"].getInt
+    let p = message["params"].unsafeGet
+    if p.isValid(kind, allowExtra = true):
+      var name = kind(p)
       body
+    else:
+      debugEcho("Unable to parse data as " & $kind)
 
-template textDocumentNotification(message, kind, name, body) {.dirty.} =
+proc fileuri[T](p:T):string =
+  p["textDocument"]["uri"].getStr
+
+proc filePath[T](p:T):string =
+  p.fileuri[7..^1]
+
+proc filestash[T](p:T):string =
+  storage / (hash(p.fileuri).toHex & ".nim" )
+
+proc rawLine[T](p:T):int =
+  p["position"]["line"].getInt
+
+proc rawChar[T](p:T):int =
+  p["position"]["character"].getInt
+
+proc col[T](openFiles:Table[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]];p:T):int=
+  openFiles[p.fileuri].fingerTable[p.rawLine].utf16to8(p.rawChar)
+
+template textDocumentNotification(message, kind, name, body) =
   if message["params"].isSome:
-    let name = message["params"].unsafeGet
-    whenValid(name, kind):
-      if not name["textDocument"].hasKey("languageId") or name["textDocument"]["languageId"].getStr == "nim":
-        let
-          fileuri = name["textDocument"]["uri"].getStr
-          filestash = storage / (hash(fileuri).toHex & ".nim" )
-        body
+    var p = message["params"].unsafeGet
+    if p.isValid(kind, allowExtra = true):
+      var name = kind(p)
+      body
+    else:
+      debugEcho("Unable to parse data as " & $kind)
 
 proc pathToUri(path: string): string =
   # This is a modified copy of encodeUrl in the uri module. This doesn't encode
@@ -228,12 +226,12 @@ while true:
           )).JsonNode)
         of "textDocument/completion":
           message.textDocumentRequest(CompletionParams, compRequest):
-            debugEcho "Running equivalent of: sug ", fileuri[7..^1], ";", filestash, ":",
-              rawLine + 1, ":",
-              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-            let suggestions = getNimsuggest(fileuri).sug(fileuri[7..^1], dirtyfile = filestash,
-              rawLine + 1,
-              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+            debugEcho "Running equivalent of: sug ", compRequest.filePath, ";", compRequest.filestash, ":",
+              compRequest.rawLine + 1, ":",
+              openFiles.col(compRequest)
+            let suggestions = getNimsuggest(compRequest.fileuri).sug(compRequest.filePath, dirtyfile = compRequest.filestash,
+              compRequest.rawLine + 1,
+              openFiles.col(compRequest)
             )
             debugEcho "Found suggestions: ",
               suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
@@ -260,12 +258,12 @@ while true:
             message.respond completionItems
         of "textDocument/hover":
           message.textDocumentRequest(TextDocumentPositionParams, hoverRequest):
-            debugEcho "Running equivalent of: def ", fileuri[7..^1], ";", filestash, ":",
-              rawLine + 1, ":",
-              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-            let suggestions = getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
-              rawLine + 1,
-              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+            debugEcho "Running equivalent of: def ", hoverRequest.filePath, ";", hoverRequest.filestash, ":",
+              hoverRequest.rawLine + 1, ":",
+              openFiles.col(hoverRequest)
+            let suggestions = getNimsuggest(hoverRequest.fileuri).def(hoverRequest.filePath, dirtyfile = hoverRequest.filestash,
+              hoverRequest.rawLine + 1,
+              openFiles.col(hoverRequest)
             )
             debugEcho "Found suggestions: ",
               suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
@@ -279,8 +277,8 @@ while true:
               let
                 rangeopt =
                   some(create(Range,
-                    create(Position, rawLine, rawChar),
-                    create(Position, rawLine, rawChar + suggestions[0].qualifiedPath[^1].len)
+                    create(Position, hoverRequest.rawLine, hoverRequest.rawChar),
+                    create(Position, hoverRequest.rawLine, hoverRequest.rawChar + suggestions[0].qualifiedPath[^1].len)
                   ))
                 markedString = create(MarkedStringOption, "nim", label)
               if suggestions[0].doc != "":
@@ -295,12 +293,12 @@ while true:
                 message.respond create(Hover, markedString, rangeopt).JsonNode
         of "textDocument/references":
           message.textDocumentRequest(ReferenceParams, referenceRequest):
-            debugEcho "Running equivalent of: use ", fileuri[7..^1], ";", filestash, ":",
-              rawLine + 1, ":",
-              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-            let suggestions = getNimsuggest(fileuri).use(fileuri[7..^1], dirtyfile = filestash,
-              rawLine + 1,
-              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+            debugEcho "Running equivalent of: use ", referenceRequest.filePath, ";", referenceRequest.filestash, ":",
+              referenceRequest.rawLine + 1, ":",
+              openFiles.col(referenceRequest)
+            let suggestions = getNimsuggest(referenceRequest.fileuri).use(referenceRequest.filePath, dirtyfile = referenceRequest.filestash,
+              referenceRequest.rawLine + 1,
+              openFiles.col(referenceRequest)
             )
             debugEcho "Found suggestions: ",
               suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
@@ -321,12 +319,12 @@ while true:
               message.respond response
         of "textDocument/rename":
           message.textDocumentRequest(RenameParams, renameRequest):
-            debugEcho "Running equivalent of: use ", fileuri[7..^1], ";", filestash, ":",
-              rawLine + 1, ":",
-              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-            let suggestions = getNimsuggest(fileuri).use(fileuri[7..^1], dirtyfile = filestash,
-              rawLine + 1,
-              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+            debugEcho "Running equivalent of: use ", renameRequest.filePath, ";", renameRequest.filestash, ":",
+              renameRequest.rawLine + 1, ":",
+              openFiles.col(renameRequest)
+            let suggestions = getNimsuggest(renameRequest.fileuri).use(renameRequest.filePath, dirtyfile = renameRequest.filestash,
+              renameRequest.rawLine + 1,
+              openFiles.col(renameRequest)
             )
             debugEcho "Found suggestions: ",
               suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
@@ -351,12 +349,12 @@ while true:
               ).JsonNode
         of "textDocument/definition":
           message.textDocumentRequest(TextDocumentPositionParams, definitionRequest):
-            debugEcho "Running equivalent of: def ", fileuri[7..^1], ";", filestash, ":",
-              rawLine + 1, ":",
-              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-            let declarations = getNimsuggest(fileuri).def(fileuri[7..^1], dirtyfile = filestash,
-              rawLine + 1,
-              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+            debugEcho "Running equivalent of: def ", definitionRequest.filePath, ";", definitionRequest.filestash, ":",
+              definitionRequest.rawLine + 1, ":",
+              openFiles.col(definitionRequest)
+            let declarations = getNimsuggest(definitionRequest.fileuri).def(definitionRequest.filePath, dirtyfile = definitionRequest.filestash,
+              definitionRequest.rawLine + 1,
+              openFiles.col(definitionRequest)
             )
             debugEcho "Found suggestions: ",
               declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
@@ -376,8 +374,8 @@ while true:
               message.respond response
         of "textDocument/documentSymbol":
           message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
-            debugEcho "Running equivalent of: outline ", fileuri[7..^1], ";", filestash
-            let syms = getNimsuggest(fileuri).outline(fileuri[7..^1], dirtyfile = filestash)
+            debugEcho "Running equivalent of: outline ", symbolRequest.filePath, ";", symbolRequest.filestash
+            let syms = getNimsuggest(symbolRequest.fileuri).outline(symbolRequest.filePath, dirtyfile = symbolRequest.filestash)
             debugEcho "Found outlines: ",
               syms[0..(if syms.len > 10: 10 else: syms.high)],
               (if syms.len > 10: " and " & $(syms.len-10) & " more" else: "")
@@ -436,10 +434,10 @@ while true:
         of "textDocument/didOpen":
           message.textDocumentNotification(DidOpenTextDocumentParams, textDoc):
             let
-              file = open(filestash, fmWrite)
-              projectFile = getProjectFile(fileuri[7..^1])
-            debugEcho "New document opened for URI: ", fileuri, " \nsaving to " & filestash
-            openFiles[fileuri] = (
+              file = open(textDoc.filestash, fmWrite)
+              projectFile = getProjectFile(textDoc.filePath)
+            debugEcho "New document opened for URI: ", textDoc.fileuri, " \nsaving to " & textDoc.filestash
+            openFiles[textDoc.fileuri] = (
               #nimsuggest: initNimsuggest(fileuri[7..^1]),
               projectFile: projectFile,
               fingerTable: @[]
@@ -450,46 +448,46 @@ while true:
             else:
               projectFiles[projectFile].openFiles += 1
             for line in textDoc["textDocument"]["text"].getStr.splitLines:
-              openFiles[fileuri].fingerTable.add line.createUTFMapping()
+              openFiles[textDoc.fileuri].fingerTable.add line.createUTFMapping()
               file.writeLine line
             file.close()
         of "textDocument/didChange":
           message.textDocumentNotification(DidChangeTextDocumentParams, textDoc):
-            let file = open(filestash, fmWrite)
-            debugEcho "Got document change for URI: ", fileuri, " saving to " & filestash
-            openFiles[fileuri].fingerTable = @[]
+            let file = open(textDoc.filestash, fmWrite)
+            debugEcho "Got document change for URI: ", textDoc.fileuri, " saving to " & textDoc.filestash
+            openFiles[textDoc.fileuri].fingerTable = @[]
             for line in textDoc["contentChanges"][0]["text"].getStr.splitLines:
-              openFiles[fileuri].fingerTable.add line.createUTFMapping()
+              openFiles[textDoc.fileuri].fingerTable.add line.createUTFMapping()
               file.writeLine line
             file.close()
         of "textDocument/didClose":
           message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
-            let projectFile = getProjectFile(fileuri[7..^1])
-            debugEcho "Got document close for URI: ", fileuri, " copied to " & filestash
-            removeFile(filestash)
+            let projectFile = getProjectFile(textDoc.filePath)
+            debugEcho "Got document close for URI: ", textDoc.fileuri, " copied to " & textDoc.filestash
+            removeFile(textDoc.filestash)
             projectFiles[projectFile].openFiles -= 1
             if projectFiles[projectFile].openFiles == 0:
               debugEcho "Trying to stop nimsuggest"
-              debugEcho "Stopped nimsuggest with code: " & $getNimsuggest(fileuri).stopNimsuggest()
-            openFiles.del(fileuri)
+              debugEcho "Stopped nimsuggest with code: " & $getNimsuggest(textDoc.fileuri).stopNimsuggest()
+            openFiles.del(textDoc.fileuri)
         of "textDocument/didSave":
           message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
             if textDoc["text"].isSome:
-              let file = open(filestash, fmWrite)
-              debugEcho "Got document save for URI: ", fileuri, " saving to ", filestash
-              openFiles[fileuri].fingerTable = @[]
+              let file = open(textDoc.filestash, fmWrite)
+              debugEcho "Got document save for URI: ", textDoc.fileuri, " saving to ", textDoc.filestash
+              openFiles[textDoc.fileuri].fingerTable = @[]
               for line in textDoc["text"].unsafeGet.getStr.splitLines:
-                openFiles[fileuri].fingerTable.add line.createUTFMapping()
+                openFiles[textDoc.fileuri].fingerTable.add line.createUTFMapping()
                 file.writeLine line
               file.close()
-            debugEcho "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
-            let diagnostics = getNimsuggest(fileuri).chk(fileuri[7..^1], dirtyfile = filestash)
+            debugEcho "fileuri: ", textDoc.fileuri, ", project file: ", openFiles[textDoc.fileuri].projectFile, ", dirtyfile: ", textDoc.filestash
+            let diagnostics = getNimsuggest(textDoc.fileuri).chk(textDoc.filePath, dirtyfile = textDoc.filestash)
             debugEcho "Got diagnostics: ",
               diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
               (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
             if diagnostics.len == 0:
               notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
-                fileuri,
+                textDoc.fileuri,
                 @[]).JsonNode
               )
             else:
@@ -497,7 +495,7 @@ while true:
               for diagnostic in diagnostics:
                 if diagnostic.line == 0:
                   continue
-                if diagnostic.filePath != fileuri[7..^1]:
+                if diagnostic.filePath != textDoc.filePath:
                   continue
                 # Try to guess the size of the identifier
                 let
@@ -519,7 +517,7 @@ while true:
                   none(seq[DiagnosticRelatedInformation])
                 )
               notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
-                fileuri,
+                textDoc.fileuri,
                 response).JsonNode
               )
         else:
