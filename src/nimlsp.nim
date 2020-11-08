@@ -164,7 +164,8 @@ if paramCount() == 1:
     of "--version":
       echo "nimlsp v", version
       quit 0
-    else: nimpath = expandFilename(paramStr(1))
+    else: 
+      nimpath = expandFilename(paramStr(1))
 if not fileExists(nimpath / "config/nim.cfg"):
   stderr.write "Unable to find \"config/nim.cfg\" in \"" & nimpath & "\". " &
     "Supply the Nim project folder by adding it as an argument.\n"
@@ -174,9 +175,9 @@ while true:
   try:
     debugEcho "Trying to read frame"
     let frame = ins.readFrame
-    debugEcho "Got frame:\n" & frame
-    let message = frame.parseJson
-    whenValid(message, RequestMessage):
+    let msg = frame.parseJson
+    if msg.isValid(RequestMessage):
+      let message = RequestMessage(msg)
       debugEcho "Got valid Request message of type " & message["method"].getStr
       if not initialized and message["method"].getStr != "initialize":
         message.error(-32002, "Unable to accept requests before being initialized", newJNull())
@@ -215,7 +216,7 @@ while true:
             workspaceSymbolProvider = none(bool), #?: bool
             codeActionProvider = none(bool), #?: bool
             codeLensProvider = none(CodeLensOptions), #?: CodeLensOptions
-            documentFormattingProvider = none(bool), #?: bool
+            documentFormattingProvider = some(false), #?: bool
             documentRangeFormattingProvider = none(bool), #?: bool
             documentOnTypeFormattingProvider = none(DocumentOnTypeFormattingOptions), #?: DocumentOnTypeFormattingOptions
             renameProvider = some(true), #?: bool
@@ -418,7 +419,8 @@ while true:
         else:
           debugEcho "Unknown request"
       continue
-    whenValid(message, NotificationMessage):
+    elif msg.isValid(NotificationMessage):
+      let message = NotificationMessage(msg)
       debugEcho "Got valid Notification message of type " & message["method"].getStr
       if not initialized and message["method"].getStr != "exit":
         continue
@@ -436,14 +438,14 @@ while true:
             let
               file = open(filestash, fmWrite)
               projectFile = getProjectFile(fileuri[7..^1])
-            debugEcho "New document opened for URI: ", fileuri, " saving to " & filestash
+            debugEcho "New document opened for URI: ", fileuri, " \nsaving to " & filestash
             openFiles[fileuri] = (
               #nimsuggest: initNimsuggest(fileuri[7..^1]),
               projectFile: projectFile,
               fingerTable: @[]
             )
             if not projectFiles.hasKey(projectFile):
-              debugEcho "Initialising project with ", projectFile, ":", nimpath
+              debugEcho "Initialising project with project file: ", projectFile, "\nnimpath: ", nimpath
               projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
             else:
               projectFiles[projectFile].openFiles += 1
@@ -523,6 +525,8 @@ while true:
         else:
           debugEcho "Got unknown notification message"
       continue
+    else:
+      debugEcho "Got unknown message" & frame
   except IOError:
     break
   except CatchableError as e:
