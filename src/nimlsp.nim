@@ -165,9 +165,8 @@ proc getProjectFile(file: string): string =
             if fileExists(dir / srcDir / fname.addFileExt(".nim")):
               result = dir / srcDir / fname.addFileExt(".nim")
               return result
-          else:
-            if fileExists(dir / "src" / fname.addFileExt(".nim")):
-              return dir / "src" / fname.addFileExt(".nim")
+        if fileExists(dir / "src" / fname.addFileExt(".nim")):
+          return dir / "src" / fname.addFileExt(".nim")
     path = dir
 
 template getNimsuggest(fileuri: string): Nimsuggest =
