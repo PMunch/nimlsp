@@ -1,12 +1,10 @@
 import macros, os
+import logger
 
 const explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
 
 macro mImport(path: static[string]): untyped =
-  result = newNimNode(nnkStmtList)
-  result.add(quote do:
-    import `path`
-  )
+  result = nnkImportStmt.newTree(newLit(path))
 
 mImport(explicitSourcePath / "nimsuggest" / "nimsuggest.nim")
 import messageenums
@@ -97,32 +95,115 @@ func nimSymDetails*(suggest: Suggest): string =
   of "skVar": "var of " & suggest.forth
   else: suggest.forth
 
-func nimDocstring*(suggest: Suggest): string =
-  suggest.doc
+macro createCommands(fileOnly:static[bool] = false, commands: varargs[untyped]) =
+  
+  result = nnkStmtList.newTree
+  for cmd in commands:
+    let cmdStr = cmd.strVal
+    var params = nnkFormalParams.newTree(
+        nnkBracketExpr.newTree(
+          ident("seq"),
+          ident"Suggest"
+        ),
+        nnkIdentDefs.newTree(
+          ident("nimsuggest"),
+          ident("NimSuggest"),
+          newEmptyNode()
+        ),
+        nnkIdentDefs.newTree(
+          ident("file"),
+          ident("string"),
+          newEmptyNode()
+        ),
+        nnkIdentDefs.newTree(
+          ident("dirtyfile"),
+          newEmptyNode(),
+          newLit("")
+        ),
+       
+      )
+    if not fileOnly:
+      params.add nnkIdentDefs.newTree(
+          ident("line"),
+          ident("int"),
+          newEmptyNode()
+        )
+      params.add nnkIdentDefs.newTree(
+          ident("col"),
+          ident("int"),
+          newEmptyNode()
+        )
+    var call = nnkCall.newTree(
+      nnkDotExpr.newTree(
+        ident("nimsuggest"),
+        ident("runCmd")
+      ),
+      ident("ide" & cmdStr)
+      ,
+      nnkCommand.newTree(
+        ident("AbsoluteFile"),
+        ident("file")
+      ),
+      nnkCommand.newTree(
+        ident("AbsoluteFile"),
+        ident("dirtyfile")
+      )
+    )
+    if not fileOnly:
+      call.add ident("line")
+      call.add ident("col")
+    else:
+      call.add newLit(0)
+      call.add newLit(0)
+    var tryCatch = nnkTryStmt.newTree(
+      nnkStmtList.newTree(
+        nnkAsgn.newTree(
+          newIdentNode("result"),
+          call
+        )
+      ),
+      nnkExceptBranch.newTree(
+        nnkInfix.newTree(
+          newIdentNode("as"),
+          newIdentNode("Exception"),
+          newIdentNode("e")
+        ),
+        nnkStmtList.newTree(
+          nnkCommand.newTree(
+            newIdentNode("debug"),
+            nnkPrefix.newTree(
+              newIdentNode("$"),
+              nnkCall.newTree(
+                newIdentNode("getStackTraceEntries")
+              )
+            )
+          )
+        )
+      )
+    )
+    result.add nnkStmtList.newTree(
+    nnkProcDef.newTree(
+      nnkPostfix.newTree(
+        ident("*"),
+        ident(cmdStr)
+      ),
+      newEmptyNode(),
+      newEmptyNode(),
+      params,
+      newEmptyNode(),
+      newEmptyNode(),
+      nnkStmtList.newTree(
+       tryCatch
+        )
+      )
+    )
 
-template createFullCommand(command: untyped) {.dirty.} =
-  proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = "",
-            line: int, col: int): seq[Suggest] =
-    nimsuggest.runCmd(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile, line, col)
-
-template createFileOnlyCommand(command: untyped) {.dirty.} =
-  proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = ""): seq[Suggest] =
-    nimsuggest.runCmd(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile, 0, 0)
-
-createFullCommand(sug)
-createFullCommand(con)
-createFullCommand(def)
-createFullCommand(use)
-createFullCommand(dus)
-createFileOnlyCommand(chk)
-#createFileOnlyCommand(`mod`)
-createFileOnlyCommand(highlight)
-createFileOnlyCommand(outline)
-createFileOnlyCommand(known)
+createCommands(false,sug,con,def,use,dus)
+createCommands(true,chk,highlight,outline,known)
 
 when isMainModule:
-  var graph = initNimSuggest("/home/peter/div/nimlsp/suglibtest.nim", nimPath = "/home/peter/div/Nim")
-  var suggestions = graph.sug("/home/peter/div/nimlsp/suglibtest.nim", "/home/peter/div/nimlsp/suglibtest.nim", 7, 2)
+  var graph = initNimSuggest(currentSourcePath, nimPath = getCurrentCompilerExe().parentDir.parentDir)
+  var suggestions = graph.sug(currentSourcePath, currentSourcePath, 206, 26)
   echo "Got ", suggestions.len, " suggestions"
   for suggestion in suggestions:
     echo suggestion
