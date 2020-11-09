@@ -8,6 +8,7 @@ import hashes
 import uri
 import algorithm
 import strscans
+import sets
 
 const
   storage = getTempDir() / "nimlsp"
@@ -51,6 +52,7 @@ var
   initialized = false
   projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: int]]()
   openFiles = initTable[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
+  projects = initHashSet[string]()
 
 template whenValid(data, kind, body) =
   if data.isValid(kind, allowExtra = true):
@@ -151,22 +153,25 @@ proc getProjectFile(file: string): string =
       fileExists(path / current.addFileExt(".nims"))) and certainty <= Cfg:
       result = path / current.addFileExt(".nim")
       certainty = Cfg
-    for kind, file in walkDir(path):
-      if file.endsWith(".nimble") and certainty <= Nimble:
-        # Read the .nimble file and find the project file
-        # TODO interate with nimble api to find project file ,currently just string match
-        let content = readFile(file)
-        let lines = content.splitLines()
-        let (dir, fname, ext) = file.splitFile()
-        const p1 = """$ssrcDir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
-        const p2 = """$ssrcdir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
-        for line in lines:
-          if scanf(line, p1, srcDir) or scanf(line, p2, srcDir):
-            if fileExists(dir / srcDir / fname.addFileExt(".nim")):
-              result = dir / srcDir / fname.addFileExt(".nim")
-              return result
-        if fileExists(dir / "src" / fname.addFileExt(".nim")):
-          return dir / "src" / fname.addFileExt(".nim")
+    for project in projects:
+      if path.isRelativeTo(project):
+        for kind, file in walkDir(path):
+          if file.endsWith(".nimble") and certainty <= Nimble:
+            # Read the .nimble file and find the project file
+            # TODO interate with nimble api to find project file ,currently just string match
+            let content = readFile(file)
+            let lines = content.splitLines()
+            let (dir, fname, ext) = file.splitFile()
+            const p1 = """$ssrcDir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
+            const p2 = """$ssrcdir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
+            for line in lines:
+              if scanf(line, p1, srcDir) or scanf(line, p2, srcDir):
+                if fileExists(dir / srcDir / fname.addFileExt(".nim")):
+                  result = dir / srcDir / fname.addFileExt(".nim")
+                  debugEcho "Found project file through srcDir in nimble:" & result
+                  return result
+            if fileExists(dir / "src" / fname.addFileExt(".nim")):
+              return dir / "src" / fname.addFileExt(".nim")
     path = dir
 
 template getNimsuggest(fileuri: string): Nimsuggest =
@@ -207,6 +212,19 @@ while true:
           gotShutdown = true
         of "initialize":
           debugEcho "Got initialize request, answering"
+          if message["params"].unsafeGet().hasKey("workspaceFolders"):
+            for p in message["params"].unsafeGet()["workspaceFolders"].getElems:
+              let part = p["uri"].getStr()[7..^1]
+              var path = part.decodeUrl
+              when defined(windows):
+                path.removePrefix "/" 
+              projects.incl(path)
+          elif message["params"].unsafeGet().hasKey("rootUri"):
+            let part = message["params"].unsafeGet()["rootUri"].getStr()[7..^1]
+            var path = part.decodeUrl
+            when defined(windows):
+              path.removePrefix "/" 
+            projects.incl(path)
           initialized = true
           message.respond(create(InitializeResult, create(ServerCapabilities,
             textDocumentSync = some(create(TextDocumentSyncOptions,
