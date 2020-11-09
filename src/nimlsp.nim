@@ -156,11 +156,11 @@ proc getProjectFile(file: string): string =
         for line in lines:
           if scanf(line,"""$ssrcDir$s=$s"$w"$s""",srcDir):
             if fileExists(dir / srcDir / fname.addFileExt(".nim")):
-              result =  dir / srcDir / fname.addFileExt(".nim")
+              result = dir / srcDir / fname.addFileExt(".nim")
               return result
           else:
             if fileExists(dir / "src" / fname.addFileExt(".nim")):
-            return dir / "src" / fname.addFileExt(".nim")
+              return dir / "src" / fname.addFileExt(".nim")
     path = dir
 
 template getNimsuggest(fileuri: string): Nimsuggest =
