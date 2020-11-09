@@ -7,6 +7,7 @@ import os
 import hashes
 import uri
 import algorithm
+import strscans
 
 const
   storage = getTempDir() / "nimlsp"
@@ -133,6 +134,7 @@ proc getProjectFile(file: string): string =
   var
     path = dir
     certainty = None
+  var srcDir:string
   while path.len > 0 and path != "/":
     let
       (dir, fname, ext) = path.splitFile()
@@ -145,9 +147,20 @@ proc getProjectFile(file: string): string =
       fileExists(path / current.addFileExt(".nims"))) and certainty <= Cfg:
       result = path / current.addFileExt(".nim")
       certainty = Cfg
-    if fileExists(path / current.addFileExt(".nimble")) and certainty <= Nimble:
-      # Read the .nimble file and find the project file
-      discard
+    for file in walkDirRec(path):
+      if file.endsWith(".nimble") and certainty <= Nimble:
+        # Read the .nimble file and find the project file
+        let content = readFile(file)
+        let lines = content.splitLines()
+        let (dir, fname, ext) = file.splitFile()
+        for line in lines:
+          if scanf(line,"""$ssrcDir$s=$s"$w"$s""",srcDir):
+            if fileExists(dir / srcDir / fname.addFileExt(".nim")):
+              result =  dir / srcDir / fname.addFileExt(".nim")
+              return result
+          else:
+            if fileExists(dir / "src" / fname.addFileExt(".nim")):
+            return dir / "src" / fname.addFileExt(".nim")
     path = dir
 
 template getNimsuggest(fileuri: string): Nimsuggest =
