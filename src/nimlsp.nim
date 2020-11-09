@@ -126,6 +126,10 @@ type Certainty = enum
   Cfg,
   Nimble
 
+proc skipQuote(input: string; start: int; seps: set[char] = {'"'}): int =
+  result = 0
+  while start+result < input.len and input[start+result] in seps: inc result
+
 proc getProjectFile(file: string): string =
   result = file.decodeUrl
   when defined(windows):
@@ -147,14 +151,17 @@ proc getProjectFile(file: string): string =
       fileExists(path / current.addFileExt(".nims"))) and certainty <= Cfg:
       result = path / current.addFileExt(".nim")
       certainty = Cfg
-    for file in walkDirRec(path):
+    for kind, file in walkDir(path):
       if file.endsWith(".nimble") and certainty <= Nimble:
         # Read the .nimble file and find the project file
+        # TODO interate with nimble api to find project file ,currently just string match
         let content = readFile(file)
         let lines = content.splitLines()
         let (dir, fname, ext) = file.splitFile()
+        const p1 = """$ssrcDir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
+        const p2 = """$ssrcdir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
         for line in lines:
-          if scanf(line,"""$ssrcDir$s=$s"$w"$s""",srcDir):
+          if scanf(line, p1, srcDir) or scanf(line, p2, srcDir):
             if fileExists(dir / srcDir / fname.addFileExt(".nim")):
               result = dir / srcDir / fname.addFileExt(".nim")
               return result
