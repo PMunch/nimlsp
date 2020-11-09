@@ -155,8 +155,8 @@ proc getProjectFile(file: string): string =
       certainty = Cfg
     for project in projects:
       if path.isRelativeTo(project):
-        for kind, file in walkDir(path):
-          if file.endsWith(".nimble") and certainty <= Nimble:
+        for file in walkFiles( path / "*.nimble"):
+          if certainty <= Nimble:
             # Read the .nimble file and find the project file
             # TODO interate with nimble api to find project file ,currently just string match
             let content = readFile(file)
