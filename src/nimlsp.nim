@@ -41,6 +41,7 @@ var
   projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: int]]()
   openFiles = initTable[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
   projects = initHashSet[string]()
+  knownDirs = initTable[string, string]() # dir and first picked file path
 
 template textDocumentRequest(message, kind, name, body: untyped): untyped =
   if message["params"].isSome:
@@ -164,6 +165,10 @@ proc getProjectFile(file: string): string =
                 return finalSrcDir / fname.addFileExt(".nim")
               else:
                 debug "File " & result & " is not relative to: " & finalSrcDir & " need another nimsuggest"
+                if knownDirs.hasKey(result.parentDir):
+                  return knownDirs[result.parentDir]
+                else:
+                  knownDirs[result.parentDir] = result
                 return result
     path = dir
 
