@@ -154,7 +154,7 @@ proc getProjectFile(file: string): string =
               if scanf(line, p1, srcDir) or scanf(line, p2, srcDir):
                 if fileExists(dir / srcDir / fname.addFileExt(".nim")):
                   result = dir / srcDir / fname.addFileExt(".nim")
-                  debugEcho "Found project file through srcDir in nimble:" & result
+                  debug "Found project file through srcDir in nimble:" & result
                   return result
             if fileExists(dir / "src" / fname.addFileExt(".nim")):
               return dir / "src" / fname.addFileExt(".nim")
@@ -545,6 +545,9 @@ while true:
                 textDoc.fileuri,
                 response).JsonNode
               )
+        of "$/cancelRequest":
+          message.textDocumentNotification(CancelParams, cancelParams):
+            outs.sendJson create(ResponseMessage, "2.0", parseId(cancelParams["id"]), none(JsonNode), none(ResponseError)).JsonNode
         else:
           debug "Got unknown notification message"
       continue
