@@ -9,6 +9,7 @@ import uri
 import algorithm
 import strscans
 import sets
+import regex
 
 const
   version = block:
@@ -238,10 +239,10 @@ while true:
               resolveProvider = some(true),
               triggerCharacters = some(@[".", " "])
             )), # ?: CompletionOptions
-            signatureHelpProvider = none(SignatureHelpOptions),
-            #signatureHelpProvider = some(create(SignatureHelpOptions,
-            #  triggerCharacters = some(@["(", ","])
-            #)), # ?: SignatureHelpOptions
+            # signatureHelpProvider = none(SignatureHelpOptions),
+            signatureHelpProvider = some(create(SignatureHelpOptions,
+             triggerCharacters = some(@["(", ","])
+            )), # ?: SignatureHelpOptions
             definitionProvider = some(true), #?: bool
             typeDefinitionProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
             implementationProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
@@ -438,19 +439,46 @@ while true:
                   none(string)
                 ).JsonNode
               message.respond response
-        #of "textDocument/signatureHelp":
-        #  if message["params"].isSome:
-        #    let signRequest = message["params"].unsafeGet
-        #    whenValid(signRequest, TextDocumentPositionParams):
-        #      let
-        #        docUri = signRequest["textDocument"]["uri"].getStr
-        #        filestash = storage / (hash(docUri).toHex & ".nim" )
-        #      debug "Got signature request for URI: ", docUri, " copied to " & filestash
-        #      let
-        #        rawLine = signRequest["position"]["line"].getInt
-        #        rawChar = signRequest["position"]["character"].getInt
-        #        suggestions = getNimsuggest(docUri).con(docUri[7..^1], dirtyfile = filestash, rawLine + 1, rawChar)
-
+        of "textDocument/signatureHelp":
+          message.textDocumentRequest(TextDocumentPositionParams, signRequest):
+            debug "Running equivalent of: con ", signRequest.docPath, ";", signRequest.filestash, ":",
+              signRequest.rawLine + 1, ":",
+              openFiles.col(signRequest)
+            let suggestions = getNimsuggest(signRequest.docUri).con(signRequest.docPath, dirtyfile = signRequest.filestash,
+              signRequest.rawLine + 1,
+              openFiles.col(signRequest)
+            )
+            debug "Found suggestions: ",
+              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+            var signatures = newSeq[SignatureInformation]()
+            for sig in suggestions:
+              let label = sig.qualifiedPath[^1]
+              let documentation = sig.doc
+              var parameters = newSeq[ParameterInformation]()
+              if sig.forth.len > 0:
+                var genericsCleanType = ""
+                var insideGeneric = 0
+                var i = 0
+                let forthLen = sig.forth.len
+                while i < forthLen:
+                  if sig.forth[i] == '[':
+                    inc insideGeneric
+                  if insideGeneric <= 0:
+                    genericsCleanType.add sig.forth[i]
+                  if sig.forth[i] == ']':
+                    dec insideGeneric
+                  inc i
+                var m: RegexMatch
+                var signatureCutDown = genericsCleanType.find(re"(proc|macro|template|iterator|func) \((.+: .+)*\)",m)
+                if (signatureCutDown):
+                  debug "signatureCutDown:",$m.group(1,genericsCleanType)
+                  var params = m.group(1,genericsCleanType)[0].split(", ")
+                  for label in params:
+                    parameters.add create(ParameterInformation,label, none(string))
+              signatures.add create(SignatureInformation,label,some(documentation),some(parameters))
+            var response = create(SignatureHelp,signatures,none(int),none(int)).JsonNode # ,activeSignature,activeParameter
+            message.respond response
         else:
           debug "Unknown request"
       continue

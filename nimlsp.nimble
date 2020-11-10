@@ -13,6 +13,7 @@ requires "nim >= 1.0.0"
 #requires "packedjson"
 requires "astpatternmatching"
 requires "jsonschema >= 0.2.1"
+requires "regex"
 # nimble test does not work for me out of the box
 #task test, "Runs the test suite":
   #exec "nim c -r tests/test_messages.nim"
