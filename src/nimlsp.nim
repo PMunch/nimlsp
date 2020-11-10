@@ -56,7 +56,7 @@ proc fileuri[T](p:T):string =
   p["textDocument"]["uri"].getStr
 
 proc filePath[T](p:T):string =
-  p.fileuri[7..^1]
+  p.fileuri[7..^1].decodeUrl
 
 proc filestash[T](p:T):string =
   storage / (hash(p.fileuri).toHex & ".nim" )
