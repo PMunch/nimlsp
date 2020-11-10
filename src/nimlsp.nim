@@ -127,6 +127,7 @@ proc getProjectFile(file: string): string =
     path = dir
     certainty = None
   var srcDir:string
+  var finalSrcDir:string
   while path.len > 0 and path != "/":
     let
       (dir, fname, ext) = path.splitFile()
@@ -153,11 +154,17 @@ proc getProjectFile(file: string): string =
             for line in lines:
               if scanf(line, p1, srcDir) or scanf(line, p2, srcDir):
                 if fileExists(dir / srcDir / fname.addFileExt(".nim")):
-                  result = dir / srcDir / fname.addFileExt(".nim")
-                  debug "Found project file through srcDir in nimble:" & result
-                  return result
+                  finalSrcDir = dir / srcDir
+                  debug "Found srcDir in nimble:" & finalSrcDir
             if fileExists(dir / "src" / fname.addFileExt(".nim")):
-              return dir / "src" / fname.addFileExt(".nim")
+              finalSrcDir = dir / "src"
+            if finalSrcDir.len > 0:
+              if result.isRelativeTo(finalSrcDir):
+                debug "File " & result & " is relative to: " & finalSrcDir
+                return finalSrcDir / fname.addFileExt(".nim")
+              else:
+                debug "File " & result & " is not relative to: " & finalSrcDir & " need another nimsuggest"
+                return result
     path = dir
 
 template getNimsuggest(fileuri: string): Nimsuggest =
@@ -458,20 +465,20 @@ while true:
           debug "Properly initialized"
         of "textDocument/didOpen":
           message.textDocumentNotification(DidOpenTextDocumentParams, textDoc):
-            let
+            let 
               file = open(textDoc.filestash, fmWrite)
               projectFile = getProjectFile(textDoc.filePath)
             debug "New document opened for URI: ", textDoc.fileuri, " \nsaving to " & textDoc.filestash
-            openFiles[textDoc.fileuri] = (
-              #nimsuggest: initNimsuggest(fileuri[7..^1]),
-              projectFile: projectFile,
-              fingerTable: @[]
-            )
             if not projectFiles.hasKey(projectFile):
               debug "Initialising project with project file: ", projectFile, "\nnimpath: ", nimpath
               projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
+              debug "Initialised project with project file: ", projectFile
             else:
               projectFiles[projectFile].openFiles += 1
+            openFiles[textDoc.fileuri] = (
+              projectFile: projectFile,
+              fingerTable: @[]
+            )
             for line in textDoc["textDocument"]["text"].getStr.splitLines:
               openFiles[textDoc.fileuri].fingerTable.add line.createUTFMapping()
               file.writeLine line
