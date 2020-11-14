@@ -37,10 +37,11 @@ proc `$`*(suggestion: Suggest): string =
   result.add sep
   result.add "quality: " & $suggestion.quality
   result.add sep
-  result.add "line: " & $suggestion.line
-  result.add sep
   result.add "prefix: " & $suggestion.prefix
   result.add ")"
+
+proc `==`*(a,b: Suggest): bool =
+  result = a.filePath == b.filePath and a.line == b.line and a.column == b.column and a.qualifiedPath == b.qualifiedPath and a.section == b.section
 
 func nimSymToLSPKind*(suggest: Suggest): CompletionItemKind =
   case $suggest.symKind.TSymKind:

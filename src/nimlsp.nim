@@ -10,6 +10,7 @@ import algorithm
 import strscans
 import sets
 import regex
+import sequtils
 
 const
   version = block:
@@ -416,7 +417,8 @@ while true:
         of "textDocument/documentSymbol":
           message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
             debug "Running equivalent of: outline ", symbolRequest.docPath, ";", symbolRequest.filestash
-            let syms = getNimsuggest(symbolRequest.docUri).outline(symbolRequest.docPath, dirtyfile = symbolRequest.filestash)
+            let sugs = getNimsuggest(symbolRequest.docUri).outline(symbolRequest.docPath, dirtyfile = symbolRequest.filestash)
+            let syms = sugs.sortedByIt((it.line,it.column,it.quality)).deduplicate(true)
             debug "Found outlines: ",
               syms[0..(if syms.len > 10: 10 else: syms.high)],
               (if syms.len > 10: " and " & $(syms.len-10) & " more" else: "")
@@ -424,7 +426,7 @@ while true:
               message.respond newJNull()
             else:
               var response = newJarray()
-              for sym in syms.sortedByIt((it.line,it.column,it.quality)):
+              for sym in syms:
                 if sym.qualifiedPath.len != 2:
                   continue
                 response.add create(
