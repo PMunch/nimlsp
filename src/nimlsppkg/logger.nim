@@ -1,8 +1,9 @@
 import os
-const
+let
   storage* = getTempDir() / "nimlsp"
 
 when defined(debugLogging):
+  discard existsOrCreateDir(storage)
   var logFile = open(storage / "nimlsp.log", fmWrite)
 
 template debug*(args: varargs[string, `$`]) =

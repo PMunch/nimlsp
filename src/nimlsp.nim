@@ -294,6 +294,9 @@ while true:
                 data = none(JsonNode)
               ).JsonNode
             message.respond completionItems
+        of "completionItem/resolve":
+          message.textDocumentRequest(CompletionItem, compRequest):
+            message.respond compRequest.JsonNode
         of "textDocument/hover":
           message.textDocumentRequest(TextDocumentPositionParams, hoverRequest):
             debug "Running equivalent of: def ", hoverRequest.docPath, ";", hoverRequest.filestash, ":",
