@@ -158,18 +158,21 @@ proc getProjectFile(file: string): string =
           if certainty <= Nimble:
             # Read the .nimble file and find the project file
             # TODO interate with nimble api to find project file ,currently just string match
-            let content = readFile(file)
-            let lines = content.splitLines()
             let (dir, fname, ext) = file.splitFile()
             const p1 = """$ssrcDir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
             const p2 = """$ssrcdir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
-            for line in lines:
-              if scanf(line, p1, srcDir) or scanf(line, p2, srcDir):
-                if fileExists(dir / srcDir / fname.addFileExt(".nim")):
-                  finalSrcDir = dir / srcDir
-                  debug "Found srcDir in nimble:" & finalSrcDir
-            if fileExists(dir / "src" / fname.addFileExt(".nim")):
-              finalSrcDir = dir / "src"
+            var fs = newFileStream(file, fmRead)
+            var line = ""
+            if not isNil(fs):
+              while fs.readLine(line):
+                if scanf(line, p1, srcDir) or scanf(line, p2, srcDir):
+                  if srcDir.len > 0 and fileExists(path / srcDir / fname.addFileExt(".nim")):
+                    finalSrcDir = path / srcDir
+                    fs.close()
+                    debug "Found srcDir in nimble:" & finalSrcDir
+                    return finalSrcDir / fname.addFileExt(".nim")
+            if srcDir.len == 0 and fileExists(path / "src" / fname.addFileExt(".nim")):
+                finalSrcDir = path / "src"
             if finalSrcDir.len > 0:
               if result.isRelativeTo(finalSrcDir):
                 debug "File " & result & " is relative to: " & finalSrcDir
