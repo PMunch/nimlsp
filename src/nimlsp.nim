@@ -131,10 +131,14 @@ proc getProjectFile(file: string): string =
     certainty = None
   var srcDir:string
   var finalSrcDir:string
+  if projectFiles.hasKey(result):
+    return result
   while path.len > 0 and path != "/":
+    if projectFiles.hasKey(result):
+      return result
     let
       (dir, fname, ext) = path.splitFile()
-      current = fname & ext
+      current = fname
     if fileExists(path / current.addFileExt(".nim")) and certainty <= Folder:
       result = path / current.addFileExt(".nim")
       certainty = Folder
@@ -143,8 +147,13 @@ proc getProjectFile(file: string): string =
       fileExists(path / current.addFileExt(".nims"))) and certainty <= Cfg:
       result = path / current.addFileExt(".nim")
       certainty = Cfg
+    if knownDirs.hasKey(path):
+      return knownDirs[path]
+    if projectFiles.hasKey(result):
+      return result
     for project in projects:
       if path.isRelativeTo(project):
+        # return project
         for file in walkFiles( path / "*.nimble"):
           if certainty <= Nimble:
             # Read the .nimble file and find the project file
@@ -303,6 +312,7 @@ while true:
             debug "Running equivalent of: def ", hoverRequest.docPath, ";", hoverRequest.filestash, ":",
               hoverRequest.rawLine + 1, ":",
               openFiles.col(hoverRequest)
+            debug "Project file: " & getProjectFile(hoverRequest.docPath)
             let suggestions = getNimsuggest(hoverRequest.docUri).def(hoverRequest.docPath, dirtyfile = hoverRequest.filestash,
               hoverRequest.rawLine + 1,
               openFiles.col(hoverRequest)
@@ -510,7 +520,7 @@ while true:
             if not projectFiles.hasKey(projectFile):
               debug "Initialising project with project file: ", projectFile, "\nnimpath: ", nimpath
               projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
-              debug "Initialised project with project file: ", projectFile
+              debug "Nimsuggest instance project path:" & projectFiles[projectFile].nimsuggest.projectPath
             else:
               projectFiles[projectFile].openFiles += 1
             openFiles[textDoc.docUri] = (

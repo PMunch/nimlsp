@@ -14,6 +14,7 @@ export Suggest
 export IdeCmd
 export NimSuggest
 export initNimSuggest
+export projectPath
 
 proc stopNimSuggest*(nimsuggest: NimSuggest): int = 42
 

@@ -55,7 +55,7 @@ proc readFrame*(s: Stream): TaintedString =
       if contentLen != -1:
         when defined(debugCommunication):
           let msg = s.readStr(contentLen)
-          stderr.write(msg)
+          stderr.write(msg.substr(0, 200))
           stderr.write("\n")
           return msg
         else:
