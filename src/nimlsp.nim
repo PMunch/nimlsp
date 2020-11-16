@@ -520,7 +520,7 @@ while true:
             if not projectFiles.hasKey(projectFile):
               debug "Initialising project with project file: ", projectFile, "\nnimpath: ", nimpath
               projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
-              debug "Nimsuggest instance project path:" & projectFiles[projectFile].nimsuggest.projectPath
+              # debug "Nimsuggest instance project path:" & projectFiles[projectFile].nimsuggest.projectPath
             else:
               projectFiles[projectFile].openFiles += 1
             openFiles[textDoc.docUri] = (
