@@ -97,7 +97,6 @@ func nimSymDetails*(suggest: Suggest): string =
   else: suggest.forth
 
 macro createCommands(fileOnly:static[bool] = false, commands: varargs[untyped]) =
-  
   result = nnkStmtList.newTree
   for cmd in commands:
     let cmdStr = cmd.strVal

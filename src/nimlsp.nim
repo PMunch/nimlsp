@@ -526,6 +526,8 @@ while true:
             let file = open(textDoc.filestash, fmWrite)
             debug "Got document change for URI: ", textDoc.docUri, " saving to " & textDoc.filestash
             openFiles[textDoc.docUri].fingerTable = @[]
+            # If range and rangeLength are omitted, the new text is considered to be the full content of the document.
+            # here we use TextDocumentSyncKind.Full when initialze
             for line in textDoc["contentChanges"][0]["text"].getStr.splitLines:
               openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
               file.writeLine line

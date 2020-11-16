@@ -21,3 +21,4 @@ else:
 switch "warning","[Spacing]:off" # The JSON schema macro uses a syntax similar to TypeScript
 switch "warning","[CaseTransition]:off"
 switch "define","nimOldCaseObjects"
+switch "backend","c"
