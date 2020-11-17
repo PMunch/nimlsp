@@ -126,6 +126,15 @@ proc matchSrcDir*(s: string, d: var string): bool {.inline.} =
   const p2 = """$ssrcdir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
   result = scanf(s, p1, d) or scanf(s, p2, d)
 
+proc scanSrcDir(f: string, srcDir: var string) = 
+  var fs = newFileStream(f, fmRead)
+  var line = ""
+  if not isNil(fs):
+    while fs.readLine(line):
+      if matchSrcDir(line, srcDir):
+        break
+    fs.close()
+
 proc getProjectFile(file: string): string =
   result = file.decodeUrl
   when defined(windows):
@@ -164,19 +173,12 @@ proc getProjectFile(file: string): string =
             # Read the .nimble file and find the project file
             # TODO interate with nimble api to find project file ,currently just string match
             let (dir, fname, ext) = file.splitFile()
-            var fs = newFileStream(file, fmRead)
-            var line = ""
-            if not isNil(fs):
-              while fs.readLine(line):
-                if matchSrcDir(line, srcDir):
-                  if srcDir.len > 0 and fileExists(path / srcDir / fname.addFileExt(".nim")):
-                    finalSrcDir = path / srcDir
-                    debug "Found srcDir in nimble:" & finalSrcDir
-                    break
-              fs.close()
+            scanSrcDir(file, srcDir)
             if srcDir.len > 0:
-              return finalSrcDir / fname.addFileExt(".nim")
-            elif srcDir.len == 0 and fileExists(path / "src" / fname.addFileExt(".nim")):
+              if fileExists(path / srcDir / fname.addFileExt(".nim")):
+                finalSrcDir = path / srcDir
+            elif srcDir.len == 0:
+              if fileExists(path / "src" / fname.addFileExt(".nim")):
                 finalSrcDir = path / "src"
             if finalSrcDir.len > 0:
               if result.isRelativeTo(finalSrcDir):
@@ -281,7 +283,7 @@ while true:
             experimental = none(JsonNode) #?: any
           )).JsonNode)
         of "textDocument/completion":
-          message.textDocumentRequest(CompletionParams, compRequest):
+          textDocumentRequest(message, CompletionParams, compRequest):
             debug "Running equivalent of: sug ", compRequest.docPath, ";", compRequest.filestash, ":",
               compRequest.rawLine + 1, ":",
               openFiles.col(compRequest)
@@ -313,10 +315,10 @@ while true:
               ).JsonNode
             message.respond completionItems
         of "completionItem/resolve":
-          message.textDocumentRequest(CompletionItem, compRequest):
+          textDocumentRequest(message, CompletionItem, compRequest):
             message.respond compRequest.JsonNode
         of "textDocument/hover":
-          message.textDocumentRequest(TextDocumentPositionParams, hoverRequest):
+          textDocumentRequest(message,TextDocumentPositionParams, hoverRequest):
             debug "Running equivalent of: def ", hoverRequest.docPath, ";", hoverRequest.filestash, ":",
               hoverRequest.rawLine + 1, ":",
               openFiles.col(hoverRequest)
@@ -352,7 +354,7 @@ while true:
               else:
                 message.respond create(Hover, markedString, rangeopt).JsonNode
         of "textDocument/references":
-          message.textDocumentRequest(ReferenceParams, referenceRequest):
+          textDocumentRequest(message,ReferenceParams, referenceRequest):
             debug "Running equivalent of: use ", referenceRequest.docPath, ";", referenceRequest.filestash, ":",
               referenceRequest.rawLine + 1, ":",
               openFiles.col(referenceRequest)
@@ -378,7 +380,7 @@ while true:
             else:
               message.respond response
         of "textDocument/rename":
-          message.textDocumentRequest(RenameParams, renameRequest):
+          textDocumentRequest(message,RenameParams, renameRequest):
             debug "Running equivalent of: use ", renameRequest.docPath, ";", renameRequest.filestash, ":",
               renameRequest.rawLine + 1, ":",
               openFiles.col(renameRequest)
@@ -408,7 +410,7 @@ while true:
                 none(seq[TextDocumentEdit])
               ).JsonNode
         of "textDocument/definition":
-          message.textDocumentRequest(TextDocumentPositionParams, definitionRequest):
+          textDocumentRequest(message,TextDocumentPositionParams, definitionRequest):
             debug "Running equivalent of: def ", definitionRequest.docPath, ";", definitionRequest.filestash, ":",
               definitionRequest.rawLine + 1, ":",
               openFiles.col(definitionRequest)
@@ -433,7 +435,7 @@ while true:
                 ).JsonNode
               message.respond response
         of "textDocument/documentSymbol":
-          message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
+          textDocumentRequest(message,DocumentSymbolParams, symbolRequest):
             debug "Running equivalent of: outline ", symbolRequest.docPath, ";", symbolRequest.filestash
             let sugs = getNimsuggest(symbolRequest.docUri).outline(symbolRequest.docPath, dirtyfile = symbolRequest.filestash)
             let syms = sugs.sortedByIt((it.line,it.column,it.quality)).deduplicate(true)
@@ -463,7 +465,7 @@ while true:
                 ).JsonNode
               message.respond response
         of "textDocument/signatureHelp":
-          message.textDocumentRequest(TextDocumentPositionParams, signRequest):
+          textDocumentRequest(message,TextDocumentPositionParams, signRequest):
             debug "Running equivalent of: con ", signRequest.docPath, ";", signRequest.filestash, ":",
               signRequest.rawLine + 1, ":",
               openFiles.col(signRequest)
