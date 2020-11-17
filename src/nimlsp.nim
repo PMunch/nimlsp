@@ -121,6 +121,11 @@ proc skipQuote(input: string; start: int; seps: set[char] = {'"'}): int =
   result = 0
   while start+result < input.len and input[start+result] in seps: inc result
 
+proc matchSrcDir*(s: string, d: var string): bool {.inline.} =
+  const p1 = """$ssrcDir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
+  const p2 = """$ssrcdir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
+  result = scanf(s, p1, d) or scanf(s, p2, d)
+
 proc getProjectFile(file: string): string =
   result = file.decodeUrl
   when defined(windows):
@@ -159,19 +164,19 @@ proc getProjectFile(file: string): string =
             # Read the .nimble file and find the project file
             # TODO interate with nimble api to find project file ,currently just string match
             let (dir, fname, ext) = file.splitFile()
-            const p1 = """$ssrcDir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
-            const p2 = """$ssrcdir$s=$s"$[skipQuote]$w"$s$[skipQuote]$s"""
             var fs = newFileStream(file, fmRead)
             var line = ""
             if not isNil(fs):
               while fs.readLine(line):
-                if scanf(line, p1, srcDir) or scanf(line, p2, srcDir):
+                if matchSrcDir(line, srcDir):
                   if srcDir.len > 0 and fileExists(path / srcDir / fname.addFileExt(".nim")):
                     finalSrcDir = path / srcDir
-                    fs.close()
                     debug "Found srcDir in nimble:" & finalSrcDir
-                    return finalSrcDir / fname.addFileExt(".nim")
-            if srcDir.len == 0 and fileExists(path / "src" / fname.addFileExt(".nim")):
+                    break
+              fs.close()
+            if srcDir.len > 0:
+              return finalSrcDir / fname.addFileExt(".nim")
+            elif srcDir.len == 0 and fileExists(path / "src" / fname.addFileExt(".nim")):
                 finalSrcDir = path / "src"
             if finalSrcDir.len > 0:
               if result.isRelativeTo(finalSrcDir):
