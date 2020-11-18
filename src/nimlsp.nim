@@ -1,12 +1,13 @@
 import nimlsppkg / [baseprotocol, utfmapping, suggestlib]
 include nimlsppkg / messages
+import algorithm
 import streams
 import tables
 import strutils
 import os
 import hashes
 import uri
-import algorithm
+import osproc
 
 const
   storage = getTempDir() / "nimlsp"
@@ -38,8 +39,8 @@ template debugEcho(args: varargs[string, `$`]) =
     logFile.write("\n\n")
     logFile.flushFile()
 
-debugEcho("Version: " & version)
-debugEcho("explicitSourcePath: " & explicitSourcePath)
+debugEcho("Version: ", version)
+debugEcho("explicitSourcePath: ", explicitSourcePath)
 for i in 1..paramCount():
   debugEcho("Argument " & $i & ": " & paramStr(i))
 
@@ -104,9 +105,7 @@ proc pathToUri(path: string): string =
 
 proc uriToPath(uri: string): string =
   ## Convert an RFC 8089 file URI to a native, platform-specific, absolute path.
-
   let startIdx = when defined(windows): 8 else: 7
-
   normalizedPath(uri[startIdx..^1])
 
 proc parseId(node: JsonNode): int =
@@ -132,10 +131,9 @@ type Certainty = enum
   Cfg,
   Nimble
 
-proc getProjectFile(file: string): string =
-  result = file.decodeUrl
-  when defined(windows):
-    result.removePrefix "/"   # ugly fix to "/C:/foo/bar" paths from "file:///C:/foo/bar"
+proc getProjectFile(fileUri: string): string =
+  let file = fileUri.decodeUrl
+  result = file
   let (dir, _, _) = result.splitFile()
   var
     path = dir
@@ -152,9 +150,20 @@ proc getProjectFile(file: string): string =
       fileExists(path / current.addFileExt(".nims"))) and certainty <= Cfg:
       result = path / current.addFileExt(".nim")
       certainty = Cfg
-    if fileExists(path / current.addFileExt(".nimble")) and certainty <= Nimble:
-      # Read the .nimble file and find the project file
-      discard
+    if certainty <= Nimble:
+      for nimble in walkFiles(path / "*.nimble"):
+        let info = execProcess("nimble dump " & nimble)
+        var sourceDir, name: string
+        for line in info.splitLines:
+          if line.startsWith("srcDir"):
+            sourceDir = path / line[(1 + line.find '"')..^2]
+          if line.startsWith("name"):
+            name = line[(1 + line.find '"')..^2]
+        let projectFile = sourceDir / (name & ".nim")
+        if sourceDir.len != 0 and name.len != 0 and
+            file.isRelativeTo(sourceDir) and fileExists(projectFile):
+          result = projectFile
+          certainty = Nimble
     path = dir
 
 template getNimsuggest(fileuri: string): Nimsuggest =
