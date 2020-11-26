@@ -24,6 +24,10 @@ const
   # This is used to explicitly set the default source path
   explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
 
+type
+  UriParseError* = object of Defect
+    uri: string
+
 var nimpath = explicitSourcePath
 
 discard existsOrCreateDir(storage)
@@ -105,8 +109,22 @@ proc pathToUri(path: string): string =
 
 proc uriToPath(uri: string): string =
   ## Convert an RFC 8089 file URI to a native, platform-specific, absolute path.
-  let startIdx = when defined(windows): 8 else: 7
-  normalizedPath(uri[startIdx..^1])
+  #let startIdx = when defined(windows): 8 else: 7
+  #normalizedPath(uri[startIdx..^1])
+  let parsed = uri.decodeUrl.parseUri
+  if parsed.scheme != "file":
+    var e = newException(UriParseError, "Invalid scheme: " & parsed.scheme & ", only \"file\" is supported")
+    e.uri = uri
+    raise e
+  if parsed.hostname != "":
+    var e = newException(UriParseError, "Invalid hostname: " & parsed.hostname & ", only empty hostname is supported")
+    e.uri = uri
+    raise e
+  return normalizedPath(
+    when defined(windows):
+      parsed.path[1..^1]
+    else:
+      parsed.path)
 
 proc parseId(node: JsonNode): int =
   if node.kind == JString:
@@ -324,7 +342,7 @@ while true:
             for suggestion in suggestions:
               if suggestion.section == ideUse or referenceRequest["context"]["includeDeclaration"].getBool:
                 response.add create(Location,
-                  "file://" & suggestion.filepath,
+                  "file://" & pathToUri(suggestion.filepath),
                   create(Range,
                     create(Position, suggestion.line-1, suggestion.column),
                     create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
@@ -351,9 +369,9 @@ while true:
             else:
               var textEdits = newJObject()
               for suggestion in suggestions:
-                if not textEdits.hasKey("file://" & suggestion.filepath):
-                  textEdits["file://" & suggestion.filepath] = newJArray()
-                textEdits["file://" & suggestion.filepath].add create(TextEdit,
+                if not textEdits.hasKey("file://" & pathToUri(suggestion.filepath)):
+                  textEdits["file://" & pathToUri(suggestion.filepath)] = newJArray()
+                textEdits["file://" & pathToUri(suggestion.filepath)].add create(TextEdit,
                   create(Range,
                     create(Position, suggestion.line-1, suggestion.column),
                     create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
@@ -540,6 +558,9 @@ while true:
         else:
           debugEcho "Got unknown notification message"
       continue
+  except UriParseError as e:
+    debugEcho "Got exception parsing URI: ", e.msg
+    continue
   except IOError:
     break
   except CatchableError as e:
