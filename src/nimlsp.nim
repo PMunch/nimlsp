@@ -111,7 +111,7 @@ proc uriToPath(uri: string): string =
   ## Convert an RFC 8089 file URI to a native, platform-specific, absolute path.
   #let startIdx = when defined(windows): 8 else: 7
   #normalizedPath(uri[startIdx..^1])
-  let parsed = uri.decodeUrl.parseUri
+  let parsed = uri.parseUri
   if parsed.scheme != "file":
     var e = newException(UriParseError, "Invalid scheme: " & parsed.scheme & ", only \"file\" is supported")
     e.uri = uri
@@ -124,7 +124,7 @@ proc uriToPath(uri: string): string =
     when defined(windows):
       parsed.path[1..^1]
     else:
-      parsed.path)
+      parsed.path).decodeUrl
 
 proc parseId(node: JsonNode): int =
   if node.kind == JString:
@@ -561,7 +561,8 @@ while true:
   except UriParseError as e:
     debugEcho "Got exception parsing URI: ", e.msg
     continue
-  except IOError:
+  except IOError as e:
+    debugEcho "Got IOError: ", e.msg
     break
   except CatchableError as e:
     debugEcho "Got exception: ", e.msg
