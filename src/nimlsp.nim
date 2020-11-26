@@ -106,7 +106,9 @@ proc pathToUri(path: string): string =
 proc uriToPath(uri: string): string =
   ## Convert an RFC 8089 file URI to a native, platform-specific, absolute path.
   let startIdx = when defined(windows): 8 else: 7
-  normalizedPath(uri[startIdx..^1])
+  # normalizedPath(uri[startIdx..^1])
+  var relevantUri = uri[startIdx..^1]
+  return relevantUri
 
 proc parseId(node: JsonNode): int =
   if node.kind == JString:
