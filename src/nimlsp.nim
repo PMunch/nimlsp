@@ -58,7 +58,11 @@ proc docUri[T](p:T):string =
   p["textDocument"]["uri"].getStr
 
 proc docPath[T](p:T):string =
-  p.docUri[7..^1].decodeUrl
+  ## Convert an RFC 8089 file URI to a native, platform-specific, absolute path.
+
+  let startIdx = when defined(windows): 8 else: 7
+
+  normalizedPath(p.docUri[startIdx..^1])
 
 proc filestash[T](p:T):string =
   storage / (hash(p.docUri).toHex & ".nim" )
