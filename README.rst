@@ -97,7 +97,7 @@ perform many of the same features that `nimlsp` does, but we're only interested
 in syntax highlighting and some definitions. If you know how to disable the
 overlapping features or achieve this in another way please update this section.
 
-Now in order to set up LSP itself enter it's settings and add this:
+Now in order to set up LSP itself enter its settings and add this:
 
 .. code:: js
 
