@@ -6,6 +6,7 @@ import tables
 import strutils
 import os
 import hashes
+import sets
 import uri
 import osproc
 
@@ -53,11 +54,11 @@ var
   outs = newFileStream(stdout)
   gotShutdown = false
   initialized = false
-  projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: int]]()
+  projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: OrderedSet[string]]]()
   openFiles = initTable[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
 
 template whenValid(data, kind, body) =
-  if data.isValid(kind):
+  if data.isValid(kind, allowExtra = true):
     var data = kind(data)
     body
   else:
@@ -69,6 +70,9 @@ template whenValid(data, kind, body, elseblock) =
     body
   else:
     elseblock
+
+proc getFileStash(fileuri: string): string =
+  return storage / (hash(fileuri).toHex & ".nim" )
 
 template textDocumentRequest(message, kind, name, body) {.dirty.} =
   if message["params"].isSome:
@@ -476,11 +480,12 @@ while true:
               projectFile: projectFile,
               fingerTable: @[]
             )
+
             if not projectFiles.hasKey(projectFile):
               debugEcho "Initialising project with ", projectFile, ":", nimpath
-              projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
-            else:
-              projectFiles[projectFile].openFiles += 1
+              projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: initOrderedSet[string]())
+            projectFiles[projectFile].openFiles.incl(fileuri)
+
             for line in textDoc["textDocument"]["text"].getStr.splitLines:
               openFiles[fileuri].fingerTable.add line.createUTFMapping()
               file.writeLine line
@@ -496,51 +501,30 @@ while true:
             file.close()
 
             # Notify nimsuggest about a file modification.
-            discard getNimsuggest(fileuri).mod(fileuri)
+            discard getNimsuggest(fileuri).mod(uriToPath(fileuri), dirtyfile = filestash)
 
-        of "textDocument/didClose":
-          message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
-            let projectFile = getProjectFile(uriToPath(fileuri))
-            debugEcho "Got document close for URI: ", fileuri, " copied to " & filestash
-            removeFile(filestash)
-            projectFiles[projectFile].openFiles -= 1
-            if projectFiles[projectFile].openFiles == 0:
-              debugEcho "Trying to stop nimsuggest"
-              debugEcho "Stopped nimsuggest with code: " & $getNimsuggest(fileuri).stopNimsuggest()
-            openFiles.del(fileuri)
-        of "textDocument/didSave":
-          message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
-            if textDoc["text"].isSome:
-              let file = open(filestash, fmWrite)
-              debugEcho "Got document save for URI: ", fileuri, " saving to ", filestash
-              openFiles[fileuri].fingerTable = @[]
-              for line in textDoc["text"].unsafeGet.getStr.splitLines:
-                openFiles[fileuri].fingerTable.add line.createUTFMapping()
-                file.writeLine line
-              file.close()
-            debugEcho "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
-            let diagnostics = getNimsuggest(fileuri).chk(uriToPath(fileuri), dirtyfile = filestash)
-            debugEcho "Got diagnostics: ",
-              diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
-              (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
-            if diagnostics.len == 0:
-              notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
-                fileuri,
-                @[]).JsonNode
-              )
-            else:
+            # Invoke chk on all open files.
+            let projectFile = openFiles[fileuri].projectFile
+            for f in projectFiles[projectFile].openFiles.items:
+              let diagnostics = getNimsuggest(f).chk(uriToPath(f), dirtyfile = getFileStash(f))
+              debugEcho "Got diagnostics: ",
+                diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
+                (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
+
               var response: seq[Diagnostic]
               for diagnostic in diagnostics:
                 if diagnostic.line == 0:
                   continue
 
-                if diagnostic.filePath != uriToPath(fileuri):
+                if diagnostic.filePath != uriToPath(f):
                   continue
                 # Try to guess the size of the identifier
                 let
                   message = diagnostic.nimDocstring
                   endcolumn = diagnostic.column + message.rfind('\'') - message.find('\'') - 1
-                response.add create(Diagnostic,
+
+                response.add create(
+                  Diagnostic,
                   create(Range,
                     create(Position, diagnostic.line-1, diagnostic.column),
                     create(Position, diagnostic.line-1, max(diagnostic.column, endcolumn))
@@ -555,10 +539,67 @@ while true:
                   message,
                   none(seq[DiagnosticRelatedInformation])
                 )
-              notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
-                fileuri,
-                response).JsonNode
+
+              notify(
+                "textDocument/publishDiagnostics",
+                create(PublishDiagnosticsParams, f, response).JsonNode
               )
+        of "textDocument/didClose":
+          message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
+            let projectFile = getProjectFile(uriToPath(fileuri))
+            debugEcho "Got document close for URI: ", fileuri, " copied to " & filestash
+            removeFile(filestash)
+            projectFiles[projectFile].openFiles.excl(fileuri)
+            if projectFiles[projectFile].openFiles.len == 0:
+              debugEcho "Trying to stop nimsuggest"
+              debugEcho "Stopped nimsuggest with code: " & $getNimsuggest(fileuri).stopNimsuggest()
+            openFiles.del(fileuri)
+        of "textDocument/didSave":
+          message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
+            if textDoc["text"].isSome:
+              let file = open(filestash, fmWrite)
+              debugEcho "Got document save for URI: ", fileuri, " saving to ", filestash
+              openFiles[fileuri].fingerTable = @[]
+              for line in textDoc["text"].unsafeGet.getStr.splitLines:
+                openFiles[fileuri].fingerTable.add line.createUTFMapping()
+                file.writeLine line
+              file.close()
+            debugEcho "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
+
+            let diagnostics = getNimsuggest(fileuri).chk(uriToPath(fileuri), dirtyfile = filestash)
+            debugEcho "Got diagnostics: ",
+              diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
+              (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
+            var response: seq[Diagnostic]
+            for diagnostic in diagnostics:
+              if diagnostic.line == 0:
+                continue
+
+              if diagnostic.filePath != uriToPath(fileuri):
+                continue
+              # Try to guess the size of the identifier
+              let
+                message = diagnostic.nimDocstring
+                endcolumn = diagnostic.column + message.rfind('\'') - message.find('\'') - 1
+              response.add create(Diagnostic,
+                create(Range,
+                  create(Position, diagnostic.line-1, diagnostic.column),
+                  create(Position, diagnostic.line-1, max(diagnostic.column, endcolumn))
+                ),
+                some(case diagnostic.forth:
+                  of "Error": DiagnosticSeverity.Error.int
+                  of "Hint": DiagnosticSeverity.Hint.int
+                  of "Warning": DiagnosticSeverity.Warning.int
+                  else: DiagnosticSeverity.Error.int),
+                none(int),
+                some("nimsuggest chk"),
+                message,
+                none(seq[DiagnosticRelatedInformation])
+              )
+            notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
+              fileuri,
+              response).JsonNode
+            )
         else:
           debugEcho "Got unknown notification message"
       continue
@@ -571,3 +612,4 @@ while true:
   except CatchableError as e:
     debugEcho "Got exception: ", e.msg
     continue
+
