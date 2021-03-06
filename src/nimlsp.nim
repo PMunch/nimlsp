@@ -494,6 +494,10 @@ while true:
               openFiles[fileuri].fingerTable.add line.createUTFMapping()
               file.writeLine line
             file.close()
+
+            # Notify nimsuggest about a file modification.
+            discard getNimsuggest(fileuri).mod(fileuri)
+
         of "textDocument/didClose":
           message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
             let projectFile = getProjectFile(uriToPath(fileuri))
