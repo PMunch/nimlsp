@@ -115,10 +115,12 @@ createFullCommand(def)
 createFullCommand(use)
 createFullCommand(dus)
 createFileOnlyCommand(chk)
-#createFileOnlyCommand(`mod`)
 createFileOnlyCommand(highlight)
 createFileOnlyCommand(outline)
 createFileOnlyCommand(known)
+
+proc `mod`*(nimsuggest: NimSuggest, file: string, dirtyfile = ""): seq[Suggest] =
+  nimsuggest.runCmd(ideMod, AbsoluteFile file, AbsoluteFile dirtyfile, 0, 0)
 
 when isMainModule:
   var graph = initNimSuggest("/home/peter/div/nimlsp/suglibtest.nim", nimPath = "/home/peter/div/Nim")
