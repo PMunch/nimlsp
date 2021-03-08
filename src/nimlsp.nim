@@ -58,18 +58,18 @@ var
   openFiles = initTable[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
 
 template whenValid(data, kind, body) =
-  if data.isValid(kind):
+  if data.isValid(kind, allowExtra = true):
     var data = kind(data)
     body
   else:
     debugEcho("Unable to parse data as " & $kind)
 
-template whenValid(data, kind, body, elseblock) =
-  if data.isValid(kind, allowExtra = true):
+template whenValidStrict(data, kind, body) =
+  if data.isValid(kind):
     var data = kind(data)
     body
   else:
-    elseblock
+    debugEcho("Unable to parse data as " & $kind)
 
 proc getFileStash(fileuri: string): string =
   return storage / (hash(fileuri).toHex & ".nim" )
@@ -214,7 +214,7 @@ while true:
     let frame = ins.readFrame
     debugEcho "Got frame:\n" & frame
     let message = frame.parseJson
-    whenValid(message, RequestMessage):
+    whenValidStrict(message, RequestMessage):
       debugEcho "Got valid Request message of type " & message["method"].getStr
       if not initialized and message["method"].getStr != "initialize":
         message.error(-32002, "Unable to accept requests before being initialized", newJNull())
@@ -456,7 +456,7 @@ while true:
         else:
           debugEcho "Unknown request"
       continue
-    whenValid(message, NotificationMessage):
+    whenValidStrict(message, NotificationMessage):
       debugEcho "Got valid Notification message of type " & message["method"].getStr
       if not initialized and message["method"].getStr != "exit":
         continue
