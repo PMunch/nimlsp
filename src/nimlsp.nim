@@ -502,48 +502,6 @@ while true:
 
             # Notify nimsuggest about a file modification.
             discard getNimsuggest(fileuri).mod(uriToPath(fileuri), dirtyfile = filestash)
-
-            # Invoke chk on all open files.
-            let projectFile = openFiles[fileuri].projectFile
-            for f in projectFiles[projectFile].openFiles.items:
-              let diagnostics = getNimsuggest(f).chk(uriToPath(f), dirtyfile = getFileStash(f))
-              debugEcho "Got diagnostics: ",
-                diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
-                (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
-
-              var response: seq[Diagnostic]
-              for diagnostic in diagnostics:
-                if diagnostic.line == 0:
-                  continue
-
-                if diagnostic.filePath != uriToPath(f):
-                  continue
-                # Try to guess the size of the identifier
-                let
-                  message = diagnostic.nimDocstring
-                  endcolumn = diagnostic.column + message.rfind('\'') - message.find('\'') - 1
-
-                response.add create(
-                  Diagnostic,
-                  create(Range,
-                    create(Position, diagnostic.line-1, diagnostic.column),
-                    create(Position, diagnostic.line-1, max(diagnostic.column, endcolumn))
-                  ),
-                  some(case diagnostic.forth:
-                    of "Error": DiagnosticSeverity.Error.int
-                    of "Hint": DiagnosticSeverity.Hint.int
-                    of "Warning": DiagnosticSeverity.Warning.int
-                    else: DiagnosticSeverity.Error.int),
-                  none(int),
-                  some("nimsuggest chk"),
-                  message,
-                  none(seq[DiagnosticRelatedInformation])
-                )
-
-              notify(
-                "textDocument/publishDiagnostics",
-                create(PublishDiagnosticsParams, f, response).JsonNode
-              )
         of "textDocument/didClose":
           message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
             let projectFile = getProjectFile(uriToPath(fileuri))
@@ -595,6 +553,48 @@ while true:
                 some("nimsuggest chk"),
                 message,
                 none(seq[DiagnosticRelatedInformation])
+              )
+
+            # Invoke chk on all open files.
+            let projectFile = openFiles[fileuri].projectFile
+            for f in projectFiles[projectFile].openFiles.items:
+              let diagnostics = getNimsuggest(f).chk(uriToPath(f), dirtyfile = getFileStash(f))
+              debugEcho "Got diagnostics: ",
+                diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
+                (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
+
+              var response: seq[Diagnostic]
+              for diagnostic in diagnostics:
+                if diagnostic.line == 0:
+                  continue
+
+                if diagnostic.filePath != uriToPath(f):
+                  continue
+                # Try to guess the size of the identifier
+                let
+                  message = diagnostic.nimDocstring
+                  endcolumn = diagnostic.column + message.rfind('\'') - message.find('\'') - 1
+
+                response.add create(
+                  Diagnostic,
+                  create(Range,
+                    create(Position, diagnostic.line-1, diagnostic.column),
+                    create(Position, diagnostic.line-1, max(diagnostic.column, endcolumn))
+                  ),
+                  some(case diagnostic.forth:
+                    of "Error": DiagnosticSeverity.Error.int
+                    of "Hint": DiagnosticSeverity.Hint.int
+                    of "Warning": DiagnosticSeverity.Warning.int
+                    else: DiagnosticSeverity.Error.int),
+                  none(int),
+                  some("nimsuggest chk"),
+                  message,
+                  none(seq[DiagnosticRelatedInformation])
+                )
+
+              notify(
+                "textDocument/publishDiagnostics",
+                create(PublishDiagnosticsParams, f, response).JsonNode
               )
             notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
               fileuri,
