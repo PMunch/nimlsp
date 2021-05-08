@@ -237,7 +237,7 @@ while true:
             )), # ?: TextDocumentSyncOptions or int or float
             hoverProvider = some(true), # ?: bool
             completionProvider = some(create(CompletionOptions,
-              resolveProvider = some(true),
+              resolveProvider = some(false),
               triggerCharacters = some(@[".", " "])
             )), # ?: CompletionOptions
             signatureHelpProvider = none(SignatureHelpOptions),
