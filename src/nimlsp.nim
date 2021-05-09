@@ -11,6 +11,7 @@ import strscans
 import sets
 import regex
 import sequtils
+import uri
 
 const
   version = block:
@@ -35,6 +36,10 @@ debug("explicitSourcePath: " & explicitSourcePath)
 for i in 1..paramCount():
   debug("Argument " & $i & ": " & paramStr(i))
 
+type
+  UriParseError* = object of Defect
+    uri: string
+
 var
   ins = newFileStream(stdin)
   outs = newFileStream(stdout)
@@ -57,12 +62,22 @@ template textDocumentRequest(message, kind, name, body: untyped): untyped =
 proc docUri[T](p:T):string =
   p["textDocument"]["uri"].getStr
 
-proc docPath[T](p:T):string =
+proc uriToPath(uri: string): string =
   ## Convert an RFC 8089 file URI to a native, platform-specific, absolute path.
-
-  let startIdx = when defined(windows): 8 else: 7
-
-  normalizedPath(p.docUri[startIdx..^1])
+  let parsed = uri.parseUri
+  if parsed.scheme != "file":
+    var e = newException(UriParseError, "Invalid scheme: " & parsed.scheme & ", only \"file\" is supported")
+    e.uri = uri
+    raise e
+  if parsed.hostname != "":
+    var e = newException(UriParseError, "Invalid hostname: " & parsed.hostname & ", only empty hostname is supported")
+    e.uri = uri
+    raise e
+  return normalizedPath(
+    when defined(windows):
+      parsed.path[1..^1]
+    else:
+      parsed.path).decodeUrl
 
 proc filestash[T](p:T):string =
   storage / (hash(p.docUri).toHex & ".nim" )
@@ -238,16 +253,10 @@ while true:
           debug "Got initialize request, answering"
           if message["params"].unsafeGet().hasKey("workspaceFolders"):
             for p in message["params"].unsafeGet()["workspaceFolders"].getElems:
-              let part = p["uri"].getStr()[7..^1]
-              var path = part.decodeUrl
-              when defined(windows):
-                path.removePrefix "/" 
+              var path = p["uri"].getStr().uriToPath 
               projects.incl(path)
           elif message["params"].unsafeGet().hasKey("rootUri"):
-            let part = message["params"].unsafeGet()["rootUri"].getStr()[7..^1]
-            var path = part.decodeUrl
-            when defined(windows):
-              path.removePrefix "/" 
+            var path = message["params"].unsafeGet()["rootUri"].getStr().uriToPath 
             projects.incl(path)
           initialized = true
           message.respond(create(InitializeResult, create(ServerCapabilities,
@@ -288,10 +297,10 @@ while true:
           )).JsonNode)
         of "textDocument/completion":
           textDocumentRequest(message, CompletionParams, compRequest):
-            debug "Running equivalent of: sug ", compRequest.docPath, ";", compRequest.filestash, ":",
+            debug "Running equivalent of: sug ", compRequest.docUri.uriToPath, ";", compRequest.filestash, ":",
               compRequest.rawLine + 1, ":",
               openFiles.col(compRequest)
-            let suggestions = getNimsuggest(compRequest.docUri).sug(compRequest.docPath, dirtyfile = compRequest.filestash,
+            let suggestions = getNimsuggest(compRequest.docUri).sug(compRequest.docUri.uriToPath, dirtyfile = compRequest.filestash,
               compRequest.rawLine + 1,
               openFiles.col(compRequest)
             )
@@ -323,11 +332,11 @@ while true:
             message.respond compRequest.JsonNode
         of "textDocument/hover":
           textDocumentRequest(message,TextDocumentPositionParams, hoverRequest):
-            debug "Running equivalent of: def ", hoverRequest.docPath, ";", hoverRequest.filestash, ":",
+            debug "Running equivalent of: def ", hoverRequest.docUri.uriToPath, ";", hoverRequest.filestash, ":",
               hoverRequest.rawLine + 1, ":",
               openFiles.col(hoverRequest)
-            debug "Project file: " & getProjectFile(hoverRequest.docPath)
-            let suggestions = getNimsuggest(hoverRequest.docUri).def(hoverRequest.docPath, dirtyfile = hoverRequest.filestash,
+            debug "Project file: " & getProjectFile(hoverRequest.docUri.uriToPath)
+            let suggestions = getNimsuggest(hoverRequest.docUri).def(hoverRequest.docUri.uriToPath, dirtyfile = hoverRequest.filestash,
               hoverRequest.rawLine + 1,
               openFiles.col(hoverRequest)
             )
@@ -359,10 +368,10 @@ while true:
                 message.respond create(Hover, markedString, rangeopt).JsonNode
         of "textDocument/references":
           textDocumentRequest(message,ReferenceParams, referenceRequest):
-            debug "Running equivalent of: use ", referenceRequest.docPath, ";", referenceRequest.filestash, ":",
+            debug "Running equivalent of: use ", referenceRequest.docUri.uriToPath, ";", referenceRequest.filestash, ":",
               referenceRequest.rawLine + 1, ":",
               openFiles.col(referenceRequest)
-            let suggestions = getNimsuggest(referenceRequest.docUri).use(referenceRequest.docPath, dirtyfile = referenceRequest.filestash,
+            let suggestions = getNimsuggest(referenceRequest.docUri).use(referenceRequest.docUri.uriToPath, dirtyfile = referenceRequest.filestash,
               referenceRequest.rawLine + 1,
               openFiles.col(referenceRequest)
             )
@@ -385,10 +394,10 @@ while true:
               message.respond response
         of "textDocument/rename":
           textDocumentRequest(message,RenameParams, renameRequest):
-            debug "Running equivalent of: use ", renameRequest.docPath, ";", renameRequest.filestash, ":",
+            debug "Running equivalent of: use ", renameRequest.docUri.uriToPath, ";", renameRequest.filestash, ":",
               renameRequest.rawLine + 1, ":",
               openFiles.col(renameRequest)
-            let suggestions = getNimsuggest(renameRequest.docUri).use(renameRequest.docPath, dirtyfile = renameRequest.filestash,
+            let suggestions = getNimsuggest(renameRequest.docUri).use(renameRequest.docUri.uriToPath, dirtyfile = renameRequest.filestash,
               renameRequest.rawLine + 1,
               openFiles.col(renameRequest)
             )
@@ -415,10 +424,10 @@ while true:
               ).JsonNode
         of "textDocument/definition":
           textDocumentRequest(message,TextDocumentPositionParams, definitionRequest):
-            debug "Running equivalent of: def ", definitionRequest.docPath, ";", definitionRequest.filestash, ":",
+            debug "Running equivalent of: def ", definitionRequest.docUri.uriToPath, ";", definitionRequest.filestash, ":",
               definitionRequest.rawLine + 1, ":",
               openFiles.col(definitionRequest)
-            let declarations = getNimsuggest(definitionRequest.docUri).def(definitionRequest.docPath, dirtyfile = definitionRequest.filestash,
+            let declarations = getNimsuggest(definitionRequest.docUri).def(definitionRequest.docUri.uriToPath, dirtyfile = definitionRequest.filestash,
               definitionRequest.rawLine + 1,
               openFiles.col(definitionRequest)
             )
@@ -440,8 +449,8 @@ while true:
               message.respond response
         of "textDocument/documentSymbol":
           textDocumentRequest(message,DocumentSymbolParams, symbolRequest):
-            debug "Running equivalent of: outline ", symbolRequest.docPath, ";", symbolRequest.filestash
-            let sugs = getNimsuggest(symbolRequest.docUri).outline(symbolRequest.docPath, dirtyfile = symbolRequest.filestash)
+            debug "Running equivalent of: outline ", symbolRequest.docUri.uriToPath, ";", symbolRequest.filestash
+            let sugs = getNimsuggest(symbolRequest.docUri).outline(symbolRequest.docUri.uriToPath, dirtyfile = symbolRequest.filestash)
             let syms = sugs.sortedByIt((it.line,it.column,it.quality)).deduplicate(true)
             debug "Found outlines: ",
               syms[0..(if syms.len > 10: 10 else: syms.high)],
@@ -470,10 +479,10 @@ while true:
               message.respond response
         of "textDocument/signatureHelp":
           textDocumentRequest(message,TextDocumentPositionParams, signRequest):
-            debug "Running equivalent of: con ", signRequest.docPath, ";", signRequest.filestash, ":",
+            debug "Running equivalent of: con ", signRequest.docUri.uriToPath, ";", signRequest.filestash, ":",
               signRequest.rawLine + 1, ":",
               openFiles.col(signRequest)
-            let suggestions = getNimsuggest(signRequest.docUri).con(signRequest.docPath, dirtyfile = signRequest.filestash,
+            let suggestions = getNimsuggest(signRequest.docUri).con(signRequest.docUri.uriToPath, dirtyfile = signRequest.filestash,
               signRequest.rawLine + 1,
               openFiles.col(signRequest)
             )
@@ -529,7 +538,7 @@ while true:
           message.textDocumentNotification(DidOpenTextDocumentParams, textDoc):
             let 
               file = open(textDoc.filestash, fmWrite)
-              projectFile = getProjectFile(textDoc.docPath)
+              projectFile = getProjectFile(textDoc.docUri.uriToPath)
             debug "New document opened for URI: ", textDoc.docUri, " \nsaving to " & textDoc.filestash
             if not projectFiles.hasKey(projectFile):
               debug "Initialising project with project file: ", projectFile, "\nnimpath: ", nimpath
@@ -558,7 +567,7 @@ while true:
             file.close()
         of "textDocument/didClose":
           message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
-            let projectFile = getProjectFile(textDoc.docPath)
+            let projectFile = getProjectFile(textDoc.docUri.uriToPath)
             debug "Got document close for URI: ", textDoc.docUri, " copied to " & textDoc.filestash
             removeFile(textDoc.filestash)
             projectFiles[projectFile].openFiles -= 1
@@ -577,7 +586,7 @@ while true:
                 file.writeLine line
               file.close()
             debug "docUri: ", textDoc.docUri, ", project file: ", openFiles[textDoc.docUri].projectFile, ", dirtyfile: ", textDoc.filestash
-            let diagnostics = getNimsuggest(textDoc.docUri).chk(textDoc.docPath, dirtyfile = textDoc.filestash)
+            let diagnostics = getNimsuggest(textDoc.docUri).chk(textDoc.docUri.uriToPath, dirtyfile = textDoc.filestash)
             debug "Got diagnostics: ",
               diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
               (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
@@ -591,7 +600,7 @@ while true:
               for diagnostic in diagnostics:
                 if diagnostic.line == 0:
                   continue
-                if diagnostic.filepath != textDoc.docPath:
+                if diagnostic.filepath != textDoc.docUri.uriToPath:
                   continue
                 # Try to guess the size of the identifier
                 let
@@ -624,6 +633,9 @@ while true:
       continue
     else:
       debug "Got unknown message" & frame
+  except UriParseError as e:
+    debugEcho "Got exception parsing URI: ", e.msg
+    continue
   except IOError:
     break
   except CatchableError as e:
