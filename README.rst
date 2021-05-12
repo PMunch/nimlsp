@@ -216,6 +216,29 @@ To use it:
 
 4. Hit apply and everything should be working now.
 
+Kate
+-------
+The LSP plugin has to be enabled in the Kate (version >= 19.12.0) plugins menu:
+
+1. In Settings > Configure Kate > Application > Plugins, check box next to "LSP Client" to enable LSP functionality.
+
+2. Go to the now-available LSP Client menu (Settings > Configure Kate > Application) and enter the following in the User Server Settings tab:
+
+.. code:: json
+
+   {
+       "servers": {
+           "nim": {
+               "command": [".nimble/bin/nimlsp"],
+               "url": "https://github.com/PMunch/nimlsp",
+               "highlightingModeRegex": "^Nim$"
+           }
+       }
+   }
+
+This assumes that nimlsp was installed through nimble. **Note:** 
+Server initialization may fail without full path specified, from home directory, under the ``"command"`` entry, even if nimlsp is in system's ``PATH``. 
+
 Run Tests
 =========
 Not too many at the moment unfortunately, but they can be run with:
