@@ -239,6 +239,12 @@ The LSP plugin has to be enabled in the Kate (version >= 19.12.0) plugins menu:
 This assumes that nimlsp was installed through nimble. **Note:** 
 Server initialization may fail without full path specified, from home directory, under the ``"command"`` entry, even if nimlsp is in system's ``PATH``. 
 
+VS code
+-------
+source: https://github.com/bung87/vscode-nim-lsp 
+
+marketplace: https://marketplace.visualstudio.com/items?itemName=bung87.vscode-nim-lsp 
+
 Run Tests
 =========
 Not too many at the moment unfortunately, but they can be run with:
