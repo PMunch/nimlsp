@@ -29,12 +29,11 @@ proc readFrame*(s: Stream): TaintedString =
 
   while true:
     var ln = string s.readLine()
-
     if ln.len != 0:
       headerStarted = true
       let sep = ln.find(':')
       if sep == -1:
-        raise newException(MalformedFrame, "invalid header line: " & ln)
+        raise newException(MalformedFrame, "invalid header line: " & repr ln)
 
       let valueStart = ln.skipWhitespace(sep + 1)
 

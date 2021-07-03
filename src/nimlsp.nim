@@ -634,9 +634,10 @@ while true:
     else:
       debug "Got unknown message" & frame
   except UriParseError as e:
-    debugEcho "Got exception parsing URI: ", e.msg
+    debug "Got exception parsing URI: ", e.msg
     continue
-  except IOError:
+  except IOError as e:
+    debug "Got exception parsing IOError: ", e.msg
     break
   except CatchableError as e:
     debug "Got exception: ", e.msg
