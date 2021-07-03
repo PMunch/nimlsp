@@ -1,6 +1,5 @@
 import nimlsppkg / [baseprotocol, utfmapping, suggestlib, logger]
 include nimlsppkg / messages
-import streams
 import tables
 import strutils
 import os
@@ -12,6 +11,7 @@ import sets
 import regex
 import sequtils
 import uri
+import asyncfile, asyncdispatch
 
 const
   version = block:
@@ -41,8 +41,8 @@ type
     uri: string
 
 var
-  ins = newFileStream(stdin)
-  outs = newFileStream(stdout)
+  ins = newAsyncFile(stdin.getOsFileHandle().AsyncFD) #newFileStream(stdin)
+  outs = newAsyncFile(stdout.getOsFileHandle().AsyncFD)#newFileStream(stdout)
   gotShutdown = false
   initialized = false
   projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: int]]()
@@ -121,14 +121,14 @@ proc parseId(node: JsonNode): int =
   else:
     raise newException(MalformedFrame, "Invalid id node: " & repr(node))
 
-proc respond(request: RequestMessage, data: JsonNode) =
-  outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), some(data), none(ResponseError)).JsonNode
+proc respond(request: RequestMessage, data: JsonNode) {.async.}=
+  await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), some(data), none(ResponseError)).JsonNode
 
-proc error(request: RequestMessage, errorCode: int, message: string, data: JsonNode) =
-  outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
+proc error(request: RequestMessage, errorCode: int, message: string, data: JsonNode) {.async.}=
+  await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
 
-proc notify(notification: string, data: JsonNode) =
-  outs.sendJson create(NotificationMessage, "2.0", notification, some(data)).JsonNode
+proc notify(notification: string, data: JsonNode){.async.} =
+  await outs.sendJson create(NotificationMessage, "2.0", notification, some(data)).JsonNode
 
 type Certainty = enum
   None,
@@ -233,412 +233,414 @@ if not fileExists(nimpath / "config/nim.cfg"):
     "Supply the Nim project folder by adding it as an argument.\n"
   quit 1
 
-while true:
-  try:
-    debug "Trying to read frame"
-    let frame = ins.readFrame
-    let msg = frame.parseJson
-    if msg.isValid(RequestMessage):
-      let message = RequestMessage(msg)
-      debug "Got valid Request message of type " & message["method"].getStr
-      if not initialized and message["method"].getStr != "initialize":
-        message.error(-32002, "Unable to accept requests before being initialized", newJNull())
-        continue
-      case message["method"].getStr:
-        of "shutdown":
-          debug "Got shutdown request, answering"
-          message.respond(newJNull())
-          gotShutdown = true
-        of "initialize":
-          debug "Got initialize request, answering"
-          if message["params"].unsafeGet().hasKey("workspaceFolders"):
-            for p in message["params"].unsafeGet()["workspaceFolders"].getElems:
-              var path = p["uri"].getStr().uriToPath 
+proc main(){.async.} =
+  while true:
+    try:
+      debug "Trying to read frame"
+      let frame = await ins.readFrame
+      let msg = frame.parseJson
+      if msg.isValid(RequestMessage):
+        let message = RequestMessage(msg)
+        debug "Got valid Request message of type " & message["method"].getStr
+        if not initialized and message["method"].getStr != "initialize":
+          await message.error(-32002, "Unable to accept requests before being initialized", newJNull())
+          continue
+        case message["method"].getStr:
+          of "shutdown":
+            debug "Got shutdown request, answering"
+            await message.respond(newJNull())
+            gotShutdown = true
+          of "initialize":
+            debug "Got initialize request, answering"
+            if message["params"].unsafeGet().hasKey("workspaceFolders"):
+              for p in message["params"].unsafeGet()["workspaceFolders"].getElems:
+                var path = p["uri"].getStr().uriToPath 
+                projects.incl(path)
+            elif message["params"].unsafeGet().hasKey("rootUri"):
+              var path = message["params"].unsafeGet()["rootUri"].getStr().uriToPath 
               projects.incl(path)
-          elif message["params"].unsafeGet().hasKey("rootUri"):
-            var path = message["params"].unsafeGet()["rootUri"].getStr().uriToPath 
-            projects.incl(path)
-          initialized = true
-          message.respond(create(InitializeResult, create(ServerCapabilities,
-            textDocumentSync = some(create(TextDocumentSyncOptions,
-              openClose = some(true),
-              change = some(TextDocumentSyncKind.Full.int),
-              willSave = some(false),
-              willSaveWaitUntil = some(false),
-              save = some(create(SaveOptions, some(true)))
-            )), # ?: TextDocumentSyncOptions or int or float
-            hoverProvider = some(true), # ?: bool
-            completionProvider = some(create(CompletionOptions,
-              resolveProvider = some(true),
-              triggerCharacters = some(@[".", " "])
-            )), # ?: CompletionOptions
-            # signatureHelpProvider = none(SignatureHelpOptions),
-            signatureHelpProvider = some(create(SignatureHelpOptions,
-             triggerCharacters = some(@["(", ","])
-            )), # ?: SignatureHelpOptions
-            definitionProvider = some(true), #?: bool
-            typeDefinitionProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
-            implementationProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
-            referencesProvider = some(true), #?: bool
-            documentHighlightProvider = none(bool), #?: bool
-            documentSymbolProvider = some(true), #?: bool
-            workspaceSymbolProvider = none(bool), #?: bool
-            codeActionProvider = none(bool), #?: bool
-            codeLensProvider = none(CodeLensOptions), #?: CodeLensOptions
-            documentFormattingProvider = some(false), #?: bool
-            documentRangeFormattingProvider = none(bool), #?: bool
-            documentOnTypeFormattingProvider = none(DocumentOnTypeFormattingOptions), #?: DocumentOnTypeFormattingOptions
-            renameProvider = some(true), #?: bool
-            documentLinkProvider = none(DocumentLinkOptions), #?: DocumentLinkOptions
-            colorProvider = none(bool), #?: bool or ColorProviderOptions or TextDocumentAndStaticRegistrationOptions
-            executeCommandProvider = none(ExecuteCommandOptions), #?: ExecuteCommandOptions
-            workspace = none(WorkspaceCapability), #?: WorkspaceCapability
-            experimental = none(JsonNode) #?: any
-          )).JsonNode)
-        of "textDocument/completion":
-          textDocumentRequest(message, CompletionParams, compRequest):
-            debug "Running equivalent of: sug ", compRequest.docUri.uriToPath, ";", compRequest.filestash, ":",
-              compRequest.rawLine + 1, ":",
-              openFiles.col(compRequest)
-            let suggestions = getNimsuggest(compRequest.docUri).sug(compRequest.docUri.uriToPath, dirtyfile = compRequest.filestash,
-              compRequest.rawLine + 1,
-              openFiles.col(compRequest)
-            )
-            debug "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
-            var completionItems = newJarray()
-            for suggestion in suggestions:
-              completionItems.add create(CompletionItem,
-                label = suggestion.qualifiedPath[^1],
-                kind = some(nimSymToLSPKind(suggestion).int),
-                detail = some(nimSymDetails(suggestion)),
-                documentation = some(suggestion.doc),
-                deprecated = none(bool),
-                preselect = none(bool),
-                sortText = none(string),
-                filterText = none(string),
-                insertText = none(string),
-                insertTextFormat = none(int),
-                textEdit = none(TextEdit),
-                additionalTextEdits = none(seq[TextEdit]),
-                commitCharacters = none(seq[string]),
-                command = none(Command),
-                data = none(JsonNode)
-              ).JsonNode
-            message.respond completionItems
-        of "completionItem/resolve":
-          textDocumentRequest(message, CompletionItem, compRequest):
-            message.respond compRequest.JsonNode
-        of "textDocument/hover":
-          textDocumentRequest(message,TextDocumentPositionParams, hoverRequest):
-            debug "Running equivalent of: def ", hoverRequest.docUri.uriToPath, ";", hoverRequest.filestash, ":",
-              hoverRequest.rawLine + 1, ":",
-              openFiles.col(hoverRequest)
-            debug "Project file: " & getProjectFile(hoverRequest.docUri.uriToPath)
-            let suggestions = getNimsuggest(hoverRequest.docUri).def(hoverRequest.docUri.uriToPath, dirtyfile = hoverRequest.filestash,
-              hoverRequest.rawLine + 1,
-              openFiles.col(hoverRequest)
-            )
-            debug "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
-            if suggestions.len == 0:
-              message.respond newJNull()
-            else:
-              var label = suggestions[0].qualifiedPath.join(".")
-              if suggestions[0].forth != "":
-                label &= ": " & suggestions[0].forth
-              let
-                rangeopt =
-                  some(create(Range,
-                    create(Position, hoverRequest.rawLine, hoverRequest.rawChar),
-                    create(Position, hoverRequest.rawLine, hoverRequest.rawChar + suggestions[0].qualifiedPath[^1].len)
-                  ))
-                markedString = create(MarkedStringOption, "nim", label)
-              if suggestions[0].doc != "":
-                message.respond create(Hover,
-                  @[
-                    markedString,
-                    create(MarkedStringOption, "", suggestions[0].doc),
-                  ],
-                  rangeopt
-                ).JsonNode
-              else:
-                message.respond create(Hover, markedString, rangeopt).JsonNode
-        of "textDocument/references":
-          textDocumentRequest(message,ReferenceParams, referenceRequest):
-            debug "Running equivalent of: use ", referenceRequest.docUri.uriToPath, ";", referenceRequest.filestash, ":",
-              referenceRequest.rawLine + 1, ":",
-              openFiles.col(referenceRequest)
-            let suggestions = getNimsuggest(referenceRequest.docUri).use(referenceRequest.docUri.uriToPath, dirtyfile = referenceRequest.filestash,
-              referenceRequest.rawLine + 1,
-              openFiles.col(referenceRequest)
-            )
-            debug "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
-            var response = newJarray()
-            for suggestion in suggestions:
-              if suggestion.section == ideUse or referenceRequest["context"]["includeDeclaration"].getBool:
-                response.add create(Location,
-                  "file://" & suggestion.filepath,
-                  create(Range,
-                    create(Position, suggestion.line-1, suggestion.column),
-                    create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
-                  )
-                ).JsonNode
-            if response.len == 0:
-              message.respond newJNull()
-            else:
-              message.respond response
-        of "textDocument/rename":
-          textDocumentRequest(message,RenameParams, renameRequest):
-            debug "Running equivalent of: use ", renameRequest.docUri.uriToPath, ";", renameRequest.filestash, ":",
-              renameRequest.rawLine + 1, ":",
-              openFiles.col(renameRequest)
-            let suggestions = getNimsuggest(renameRequest.docUri).use(renameRequest.docUri.uriToPath, dirtyfile = renameRequest.filestash,
-              renameRequest.rawLine + 1,
-              openFiles.col(renameRequest)
-            )
-            debug "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
-            if suggestions.len == 0:
-              message.respond newJNull()
-            else:
-              var textEdits = newJObject()
+            initialized = true
+            await message.respond(create(InitializeResult, create(ServerCapabilities,
+              textDocumentSync = some(create(TextDocumentSyncOptions,
+                openClose = some(true),
+                change = some(TextDocumentSyncKind.Full.int),
+                willSave = some(false),
+                willSaveWaitUntil = some(false),
+                save = some(create(SaveOptions, some(true)))
+              )), # ?: TextDocumentSyncOptions or int or float
+              hoverProvider = some(true), # ?: bool
+              completionProvider = some(create(CompletionOptions,
+                resolveProvider = some(true),
+                triggerCharacters = some(@[".", " "])
+              )), # ?: CompletionOptions
+              # signatureHelpProvider = none(SignatureHelpOptions),
+              signatureHelpProvider = some(create(SignatureHelpOptions,
+              triggerCharacters = some(@["(", ","])
+              )), # ?: SignatureHelpOptions
+              definitionProvider = some(true), #?: bool
+              typeDefinitionProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
+              implementationProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
+              referencesProvider = some(true), #?: bool
+              documentHighlightProvider = none(bool), #?: bool
+              documentSymbolProvider = some(true), #?: bool
+              workspaceSymbolProvider = none(bool), #?: bool
+              codeActionProvider = none(bool), #?: bool
+              codeLensProvider = none(CodeLensOptions), #?: CodeLensOptions
+              documentFormattingProvider = some(false), #?: bool
+              documentRangeFormattingProvider = none(bool), #?: bool
+              documentOnTypeFormattingProvider = none(DocumentOnTypeFormattingOptions), #?: DocumentOnTypeFormattingOptions
+              renameProvider = some(true), #?: bool
+              documentLinkProvider = none(DocumentLinkOptions), #?: DocumentLinkOptions
+              colorProvider = none(bool), #?: bool or ColorProviderOptions or TextDocumentAndStaticRegistrationOptions
+              executeCommandProvider = none(ExecuteCommandOptions), #?: ExecuteCommandOptions
+              workspace = none(WorkspaceCapability), #?: WorkspaceCapability
+              experimental = none(JsonNode) #?: any
+            )).JsonNode)
+          of "textDocument/completion":
+            textDocumentRequest(message, CompletionParams, compRequest):
+              debug "Running equivalent of: sug ", compRequest.docUri.uriToPath, ";", compRequest.filestash, ":",
+                compRequest.rawLine + 1, ":",
+                openFiles.col(compRequest)
+              let suggestions = getNimsuggest(compRequest.docUri).sug(compRequest.docUri.uriToPath, dirtyfile = compRequest.filestash,
+                compRequest.rawLine + 1,
+                openFiles.col(compRequest)
+              )
+              debug "Found suggestions: ",
+                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+                (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+              var completionItems = newJarray()
               for suggestion in suggestions:
-                if not textEdits.hasKey("file://" & suggestion.filepath):
-                  textEdits["file://" & suggestion.filepath] = newJArray()
-                textEdits["file://" & suggestion.filepath].add create(TextEdit,
-                  create(Range,
-                    create(Position, suggestion.line-1, suggestion.column),
-                    create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
-                  ),
-                  renameRequest["newName"].getStr
+                completionItems.add create(CompletionItem,
+                  label = suggestion.qualifiedPath[^1],
+                  kind = some(nimSymToLSPKind(suggestion).int),
+                  detail = some(nimSymDetails(suggestion)),
+                  documentation = some(suggestion.doc),
+                  deprecated = none(bool),
+                  preselect = none(bool),
+                  sortText = none(string),
+                  filterText = none(string),
+                  insertText = none(string),
+                  insertTextFormat = none(int),
+                  textEdit = none(TextEdit),
+                  additionalTextEdits = none(seq[TextEdit]),
+                  commitCharacters = none(seq[string]),
+                  command = none(Command),
+                  data = none(JsonNode)
                 ).JsonNode
-              message.respond create(WorkspaceEdit,
-                some(textEdits),
-                none(seq[TextDocumentEdit])
-              ).JsonNode
-        of "textDocument/definition":
-          textDocumentRequest(message,TextDocumentPositionParams, definitionRequest):
-            debug "Running equivalent of: def ", definitionRequest.docUri.uriToPath, ";", definitionRequest.filestash, ":",
-              definitionRequest.rawLine + 1, ":",
-              openFiles.col(definitionRequest)
-            let declarations = getNimsuggest(definitionRequest.docUri).def(definitionRequest.docUri.uriToPath, dirtyfile = definitionRequest.filestash,
-              definitionRequest.rawLine + 1,
-              openFiles.col(definitionRequest)
-            )
-            debug "Found suggestions: ",
-              declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
-              (if declarations.len > 10: " and " & $(declarations.len-10) & " more" else: "")
-            if declarations.len == 0:
-              message.respond newJNull()
-            else:
+              await message.respond completionItems
+          of "completionItem/resolve":
+            textDocumentRequest(message, CompletionItem, compRequest):
+              await message.respond compRequest.JsonNode
+          of "textDocument/hover":
+            textDocumentRequest(message,TextDocumentPositionParams, hoverRequest):
+              debug "Running equivalent of: def ", hoverRequest.docUri.uriToPath, ";", hoverRequest.filestash, ":",
+                hoverRequest.rawLine + 1, ":",
+                openFiles.col(hoverRequest)
+              debug "Project file: " & getProjectFile(hoverRequest.docUri.uriToPath)
+              let suggestions = getNimsuggest(hoverRequest.docUri).def(hoverRequest.docUri.uriToPath, dirtyfile = hoverRequest.filestash,
+                hoverRequest.rawLine + 1,
+                openFiles.col(hoverRequest)
+              )
+              debug "Found suggestions: ",
+                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+                (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+              if suggestions.len == 0:
+                await message.respond newJNull()
+              else:
+                var label = suggestions[0].qualifiedPath.join(".")
+                if suggestions[0].forth != "":
+                  label &= ": " & suggestions[0].forth
+                let
+                  rangeopt =
+                    some(create(Range,
+                      create(Position, hoverRequest.rawLine, hoverRequest.rawChar),
+                      create(Position, hoverRequest.rawLine, hoverRequest.rawChar + suggestions[0].qualifiedPath[^1].len)
+                    ))
+                  markedString = create(MarkedStringOption, "nim", label)
+                if suggestions[0].doc != "":
+                  await message.respond create(Hover,
+                    @[
+                      markedString,
+                      create(MarkedStringOption, "", suggestions[0].doc),
+                    ],
+                    rangeopt
+                  ).JsonNode
+                else:
+                  await message.respond create(Hover, markedString, rangeopt).JsonNode
+          of "textDocument/references":
+            textDocumentRequest(message,ReferenceParams, referenceRequest):
+              debug "Running equivalent of: use ", referenceRequest.docUri.uriToPath, ";", referenceRequest.filestash, ":",
+                referenceRequest.rawLine + 1, ":",
+                openFiles.col(referenceRequest)
+              let suggestions = getNimsuggest(referenceRequest.docUri).use(referenceRequest.docUri.uriToPath, dirtyfile = referenceRequest.filestash,
+                referenceRequest.rawLine + 1,
+                openFiles.col(referenceRequest)
+              )
+              debug "Found suggestions: ",
+                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+                (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
               var response = newJarray()
-              for declaration in declarations:
-                response.add create(Location,
-                  "file://" & pathToUri(declaration.filepath),
-                  create(Range,
-                    create(Position, declaration.line-1, declaration.column),
-                    create(Position, declaration.line-1, declaration.column + declaration.qualifiedPath[^1].len)
-                  )
-                ).JsonNode
-              message.respond response
-        of "textDocument/documentSymbol":
-          textDocumentRequest(message,DocumentSymbolParams, symbolRequest):
-            debug "Running equivalent of: outline ", symbolRequest.docUri.uriToPath, ";", symbolRequest.filestash
-            let sugs = getNimsuggest(symbolRequest.docUri).outline(symbolRequest.docUri.uriToPath, dirtyfile = symbolRequest.filestash)
-            let syms = sugs.sortedByIt((it.line,it.column,it.quality)).deduplicate(true)
-            debug "Found outlines: ",
-              syms[0..(if syms.len > 10: 10 else: syms.high)],
-              (if syms.len > 10: " and " & $(syms.len-10) & " more" else: "")
-            if syms.len == 0:
-              message.respond newJNull()
-            else:
-              var response = newJarray()
-              for sym in syms:
-                if sym.qualifiedPath.len != 2:
-                  continue
-                response.add create(
-                  SymbolInformation,
-                  sym.name[],
-                  nimSymToLSPKind(sym.symKind).int,
-                  some(false),
-                  create(Location,
-                  "file://" & pathToUri(sym.filepath),
+              for suggestion in suggestions:
+                if suggestion.section == ideUse or referenceRequest["context"]["includeDeclaration"].getBool:
+                  response.add create(Location,
+                    "file://" & suggestion.filepath,
                     create(Range,
-                      create(Position, sym.line-1, sym.column),
-                      create(Position, sym.line-1, sym.column + sym.qualifiedPath[^1].len)
+                      create(Position, suggestion.line-1, suggestion.column),
+                      create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
                     )
-                  ),
-                  none(string)
+                  ).JsonNode
+              if response.len == 0:
+                await message.respond newJNull()
+              else:
+                await message.respond response
+          of "textDocument/rename":
+            textDocumentRequest(message,RenameParams, renameRequest):
+              debug "Running equivalent of: use ", renameRequest.docUri.uriToPath, ";", renameRequest.filestash, ":",
+                renameRequest.rawLine + 1, ":",
+                openFiles.col(renameRequest)
+              let suggestions = getNimsuggest(renameRequest.docUri).use(renameRequest.docUri.uriToPath, dirtyfile = renameRequest.filestash,
+                renameRequest.rawLine + 1,
+                openFiles.col(renameRequest)
+              )
+              debug "Found suggestions: ",
+                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+                (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+              if suggestions.len == 0:
+                await message.respond newJNull()
+              else:
+                var textEdits = newJObject()
+                for suggestion in suggestions:
+                  if not textEdits.hasKey("file://" & suggestion.filepath):
+                    textEdits["file://" & suggestion.filepath] = newJArray()
+                  textEdits["file://" & suggestion.filepath].add create(TextEdit,
+                    create(Range,
+                      create(Position, suggestion.line-1, suggestion.column),
+                      create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
+                    ),
+                    renameRequest["newName"].getStr
+                  ).JsonNode
+                await message.respond create(WorkspaceEdit,
+                  some(textEdits),
+                  none(seq[TextDocumentEdit])
                 ).JsonNode
-              message.respond response
-        of "textDocument/signatureHelp":
-          textDocumentRequest(message,TextDocumentPositionParams, signRequest):
-            debug "Running equivalent of: con ", signRequest.docUri.uriToPath, ";", signRequest.filestash, ":",
-              signRequest.rawLine + 1, ":",
-              openFiles.col(signRequest)
-            let suggestions = getNimsuggest(signRequest.docUri).con(signRequest.docUri.uriToPath, dirtyfile = signRequest.filestash,
-              signRequest.rawLine + 1,
-              openFiles.col(signRequest)
-            )
-            debug "Found suggestions: ",
-              suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-              (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
-            var signatures = newSeq[SignatureInformation]()
-            for sig in suggestions:
-              let label = sig.qualifiedPath[^1]
-              let documentation = sig.doc
-              var parameters = newSeq[ParameterInformation]()
-              if sig.forth.len > 0:
-                var genericsCleanType = ""
-                var insideGeneric = 0
-                var i = 0
-                let forthLen = sig.forth.len
-                while i < forthLen:
-                  if sig.forth[i] == '[':
-                    inc insideGeneric
-                  if insideGeneric <= 0:
-                    genericsCleanType.add sig.forth[i]
-                  if sig.forth[i] == ']':
-                    dec insideGeneric
-                  inc i
-                var m: RegexMatch
-                var signatureCutDown = genericsCleanType.find(re"(proc|macro|template|iterator|func) \((.+: .+)*\)",m)
-                if (signatureCutDown):
-                  debug "signatureCutDown:",$m.group(1,genericsCleanType)
-                  var params = m.group(1,genericsCleanType)[0].split(", ")
-                  for label in params:
-                    parameters.add create(ParameterInformation,label, none(string))
-              signatures.add create(SignatureInformation,label,some(documentation),some(parameters))
-            var response = create(SignatureHelp,signatures,none(int),none(int)).JsonNode # ,activeSignature,activeParameter
-            message.respond response
-        else:
-          debug "Unknown request"
-      continue
-    elif msg.isValid(NotificationMessage):
-      let message = NotificationMessage(msg)
-      debug "Got valid Notification message of type " & message["method"].getStr
-      if not initialized and message["method"].getStr != "exit":
-        continue
-      case message["method"].getStr:
-        of "exit":
-          debug "Exiting"
-          if gotShutdown:
-            quit 0
+          of "textDocument/definition":
+            textDocumentRequest(message,TextDocumentPositionParams, definitionRequest):
+              debug "Running equivalent of: def ", definitionRequest.docUri.uriToPath, ";", definitionRequest.filestash, ":",
+                definitionRequest.rawLine + 1, ":",
+                openFiles.col(definitionRequest)
+              let declarations = getNimsuggest(definitionRequest.docUri).def(definitionRequest.docUri.uriToPath, dirtyfile = definitionRequest.filestash,
+                definitionRequest.rawLine + 1,
+                openFiles.col(definitionRequest)
+              )
+              debug "Found suggestions: ",
+                declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
+                (if declarations.len > 10: " and " & $(declarations.len-10) & " more" else: "")
+              if declarations.len == 0:
+                await message.respond newJNull()
+              else:
+                var response = newJarray()
+                for declaration in declarations:
+                  response.add create(Location,
+                    "file://" & pathToUri(declaration.filepath),
+                    create(Range,
+                      create(Position, declaration.line-1, declaration.column),
+                      create(Position, declaration.line-1, declaration.column + declaration.qualifiedPath[^1].len)
+                    )
+                  ).JsonNode
+                await message.respond response
+          of "textDocument/documentSymbol":
+            textDocumentRequest(message,DocumentSymbolParams, symbolRequest):
+              debug "Running equivalent of: outline ", symbolRequest.docUri.uriToPath, ";", symbolRequest.filestash
+              let sugs = getNimsuggest(symbolRequest.docUri).outline(symbolRequest.docUri.uriToPath, dirtyfile = symbolRequest.filestash)
+              let syms = sugs.sortedByIt((it.line,it.column,it.quality)).deduplicate(true)
+              debug "Found outlines: ",
+                syms[0..(if syms.len > 10: 10 else: syms.high)],
+                (if syms.len > 10: " and " & $(syms.len-10) & " more" else: "")
+              if syms.len == 0:
+                await message.respond newJNull()
+              else:
+                var response = newJarray()
+                for sym in syms:
+                  if sym.qualifiedPath.len != 2:
+                    continue
+                  response.add create(
+                    SymbolInformation,
+                    sym.name[],
+                    nimSymToLSPKind(sym.symKind).int,
+                    some(false),
+                    create(Location,
+                    "file://" & pathToUri(sym.filepath),
+                      create(Range,
+                        create(Position, sym.line-1, sym.column),
+                        create(Position, sym.line-1, sym.column + sym.qualifiedPath[^1].len)
+                      )
+                    ),
+                    none(string)
+                  ).JsonNode
+                await message.respond response
+          of "textDocument/signatureHelp":
+            textDocumentRequest(message,TextDocumentPositionParams, signRequest):
+              debug "Running equivalent of: con ", signRequest.docUri.uriToPath, ";", signRequest.filestash, ":",
+                signRequest.rawLine + 1, ":",
+                openFiles.col(signRequest)
+              let suggestions = getNimsuggest(signRequest.docUri).con(signRequest.docUri.uriToPath, dirtyfile = signRequest.filestash,
+                signRequest.rawLine + 1,
+                openFiles.col(signRequest)
+              )
+              debug "Found suggestions: ",
+                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+                (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+              var signatures = newSeq[SignatureInformation]()
+              for sig in suggestions:
+                let label = sig.qualifiedPath[^1]
+                let documentation = sig.doc
+                var parameters = newSeq[ParameterInformation]()
+                if sig.forth.len > 0:
+                  var genericsCleanType = ""
+                  var insideGeneric = 0
+                  var i = 0
+                  let forthLen = sig.forth.len
+                  while i < forthLen:
+                    if sig.forth[i] == '[':
+                      inc insideGeneric
+                    if insideGeneric <= 0:
+                      genericsCleanType.add sig.forth[i]
+                    if sig.forth[i] == ']':
+                      dec insideGeneric
+                    inc i
+                  var m: RegexMatch
+                  var signatureCutDown = genericsCleanType.find(re"(proc|macro|template|iterator|func) \((.+: .+)*\)",m)
+                  if (signatureCutDown):
+                    debug "signatureCutDown:",$m.group(1,genericsCleanType)
+                    var params = m.group(1,genericsCleanType)[0].split(", ")
+                    for label in params:
+                      parameters.add create(ParameterInformation,label, none(string))
+                signatures.add create(SignatureInformation,label,some(documentation),some(parameters))
+              var response = create(SignatureHelp,signatures,none(int),none(int)).JsonNode # ,activeSignature,activeParameter
+              await message.respond response
           else:
-            quit 1
-        of "initialized":
-          debug "Properly initialized"
-        of "textDocument/didOpen":
-          message.textDocumentNotification(DidOpenTextDocumentParams, textDoc):
-            let 
-              file = open(textDoc.filestash, fmWrite)
-              projectFile = getProjectFile(textDoc.docUri.uriToPath)
-            debug "New document opened for URI: ", textDoc.docUri, " \nsaving to " & textDoc.filestash
-            if not projectFiles.hasKey(projectFile):
-              debug "Initialising project with project file: ", projectFile, "\nnimpath: ", nimpath
-              projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
-              # debug "Nimsuggest instance project path:" & projectFiles[projectFile].nimsuggest.projectPath
+            debug "Unknown request"
+        continue
+      elif msg.isValid(NotificationMessage):
+        let message = NotificationMessage(msg)
+        debug "Got valid Notification message of type " & message["method"].getStr
+        if not initialized and message["method"].getStr != "exit":
+          continue
+        case message["method"].getStr:
+          of "exit":
+            debug "Exiting"
+            if gotShutdown:
+              quit 0
             else:
-              projectFiles[projectFile].openFiles += 1
-            openFiles[textDoc.docUri] = (
-              projectFile: projectFile,
-              fingerTable: @[]
-            )
-            for line in textDoc["textDocument"]["text"].getStr.splitLines:
-              openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
-              file.writeLine line
-            file.close()
-        of "textDocument/didChange":
-          message.textDocumentNotification(DidChangeTextDocumentParams, textDoc):
-            let file = open(textDoc.filestash, fmWrite)
-            debug "Got document change for URI: ", textDoc.docUri, " saving to " & textDoc.filestash
-            openFiles[textDoc.docUri].fingerTable = @[]
-            # If range and rangeLength are omitted, the new text is considered to be the full content of the document.
-            # here we use TextDocumentSyncKind.Full when initialze
-            for line in textDoc["contentChanges"][0]["text"].getStr.splitLines:
-              openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
-              file.writeLine line
-            file.close()
-        of "textDocument/didClose":
-          message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
-            let projectFile = getProjectFile(textDoc.docUri.uriToPath)
-            debug "Got document close for URI: ", textDoc.docUri, " copied to " & textDoc.filestash
-            removeFile(textDoc.filestash)
-            projectFiles[projectFile].openFiles -= 1
-            if projectFiles[projectFile].openFiles == 0:
-              debug "Trying to stop nimsuggest"
-              debug "Stopped nimsuggest with code: " & $getNimsuggest(textDoc.docUri).stopNimsuggest()
-            openFiles.del(textDoc.docUri)
-        of "textDocument/didSave":
-          message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
-            if textDoc["text"].isSome:
-              let file = open(textDoc.filestash, fmWrite)
-              debug "Got document save for URI: ", textDoc.docUri, " saving to ", textDoc.filestash
-              openFiles[textDoc.docUri].fingerTable = @[]
-              for line in textDoc["text"].unsafeGet.getStr.splitLines:
+              quit 1
+          of "initialized":
+            debug "Properly initialized"
+          of "textDocument/didOpen":
+            message.textDocumentNotification(DidOpenTextDocumentParams, textDoc):
+              let 
+                file = open(textDoc.filestash, fmWrite)
+                projectFile = getProjectFile(textDoc.docUri.uriToPath)
+              debug "New document opened for URI: ", textDoc.docUri, " \nsaving to " & textDoc.filestash
+              if not projectFiles.hasKey(projectFile):
+                debug "Initialising project with project file: ", projectFile, "\nnimpath: ", nimpath
+                projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: 1)
+                # debug "Nimsuggest instance project path:" & projectFiles[projectFile].nimsuggest.projectPath
+              else:
+                projectFiles[projectFile].openFiles += 1
+              openFiles[textDoc.docUri] = (
+                projectFile: projectFile,
+                fingerTable: @[]
+              )
+              for line in textDoc["textDocument"]["text"].getStr.splitLines:
                 openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
                 file.writeLine line
               file.close()
-            debug "docUri: ", textDoc.docUri, ", project file: ", openFiles[textDoc.docUri].projectFile, ", dirtyfile: ", textDoc.filestash
-            let diagnostics = getNimsuggest(textDoc.docUri).chk(textDoc.docUri.uriToPath, dirtyfile = textDoc.filestash)
-            debug "Got diagnostics: ",
-              diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
-              (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
-            if diagnostics.len == 0:
-              notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
-                textDoc.docUri,
-                @[]).JsonNode
-              )
-            else:
-              var response: seq[Diagnostic]
-              for diagnostic in diagnostics:
-                if diagnostic.line == 0:
-                  continue
-                if diagnostic.filepath != textDoc.docUri.uriToPath:
-                  continue
-                # Try to guess the size of the identifier
-                let
-                  message = diagnostic.doc
-                  endcolumn = diagnostic.column + message.rfind('\'') - message.find('\'') - 1
-                response.add create(Diagnostic,
-                  create(Range,
-                    create(Position, diagnostic.line-1, diagnostic.column),
-                    create(Position, diagnostic.line-1, max(diagnostic.column, endcolumn))
-                  ),
-                  some(case diagnostic.forth:
-                    of "Error": DiagnosticSeverity.Error.int
-                    of "Hint": DiagnosticSeverity.Hint.int
-                    of "Warning": DiagnosticSeverity.Warning.int
-                    else: DiagnosticSeverity.Error.int),
-                  none(int),
-                  some("nimsuggest chk"),
-                  message,
-                  none(seq[DiagnosticRelatedInformation])
+          of "textDocument/didChange":
+            message.textDocumentNotification(DidChangeTextDocumentParams, textDoc):
+              let file = open(textDoc.filestash, fmWrite)
+              debug "Got document change for URI: ", textDoc.docUri, " saving to " & textDoc.filestash
+              openFiles[textDoc.docUri].fingerTable = @[]
+              # If range and rangeLength are omitted, the new text is considered to be the full content of the document.
+              # here we use TextDocumentSyncKind.Full when initialze
+              for line in textDoc["contentChanges"][0]["text"].getStr.splitLines:
+                openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
+                file.writeLine line
+              file.close()
+          of "textDocument/didClose":
+            message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
+              let projectFile = getProjectFile(textDoc.docUri.uriToPath)
+              debug "Got document close for URI: ", textDoc.docUri, " copied to " & textDoc.filestash
+              removeFile(textDoc.filestash)
+              projectFiles[projectFile].openFiles -= 1
+              if projectFiles[projectFile].openFiles == 0:
+                debug "Trying to stop nimsuggest"
+                debug "Stopped nimsuggest with code: " & $getNimsuggest(textDoc.docUri).stopNimsuggest()
+              openFiles.del(textDoc.docUri)
+          of "textDocument/didSave":
+            message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
+              if textDoc["text"].isSome:
+                let file = open(textDoc.filestash, fmWrite)
+                debug "Got document save for URI: ", textDoc.docUri, " saving to ", textDoc.filestash
+                openFiles[textDoc.docUri].fingerTable = @[]
+                for line in textDoc["text"].unsafeGet.getStr.splitLines:
+                  openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
+                  file.writeLine line
+                file.close()
+              debug "docUri: ", textDoc.docUri, ", project file: ", openFiles[textDoc.docUri].projectFile, ", dirtyfile: ", textDoc.filestash
+              let diagnostics = getNimsuggest(textDoc.docUri).chk(textDoc.docUri.uriToPath, dirtyfile = textDoc.filestash)
+              debug "Got diagnostics: ",
+                diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
+                (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
+              if diagnostics.len == 0:
+                await notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
+                  textDoc.docUri,
+                  @[]).JsonNode
                 )
-              notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
-                textDoc.docUri,
-                response).JsonNode
-              )
-        of "$/cancelRequest":
-          message.textDocumentNotification(CancelParams, cancelParams):
-            outs.sendJson create(ResponseMessage, "2.0", parseId(cancelParams["id"]), none(JsonNode), none(ResponseError)).JsonNode
-        else:
-          debug "Got unknown notification message"
+              else:
+                var response: seq[Diagnostic]
+                for diagnostic in diagnostics:
+                  if diagnostic.line == 0:
+                    continue
+                  if diagnostic.filepath != textDoc.docUri.uriToPath:
+                    continue
+                  # Try to guess the size of the identifier
+                  let
+                    message = diagnostic.doc
+                    endcolumn = diagnostic.column + message.rfind('\'') - message.find('\'') - 1
+                  response.add create(Diagnostic,
+                    create(Range,
+                      create(Position, diagnostic.line-1, diagnostic.column),
+                      create(Position, diagnostic.line-1, max(diagnostic.column, endcolumn))
+                    ),
+                    some(case diagnostic.forth:
+                      of "Error": DiagnosticSeverity.Error.int
+                      of "Hint": DiagnosticSeverity.Hint.int
+                      of "Warning": DiagnosticSeverity.Warning.int
+                      else: DiagnosticSeverity.Error.int),
+                    none(int),
+                    some("nimsuggest chk"),
+                    message,
+                    none(seq[DiagnosticRelatedInformation])
+                  )
+                await notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
+                  textDoc.docUri,
+                  response).JsonNode
+                )
+          of "$/cancelRequest":
+            message.textDocumentNotification(CancelParams, cancelParams):
+              await outs.sendJson create(ResponseMessage, "2.0", parseId(cancelParams["id"]), none(JsonNode), none(ResponseError)).JsonNode
+          else:
+            debug "Got unknown notification message"
+        continue
+      else:
+        debug "Got unknown message" & frame
+    except UriParseError as e:
+      debug "Got exception parsing URI: ", e.msg
       continue
-    else:
-      debug "Got unknown message" & frame
-  except UriParseError as e:
-    debug "Got exception parsing URI: ", e.msg
-    continue
-  except IOError as e:
-    debug "Got exception parsing IOError: ", e.msg
-    break
-  except CatchableError as e:
-    debug "Got exception: ", e.msg
-    continue
+    except IOError as e:
+      debug "Got exception parsing IOError: ", e.msg
+      break
+    except CatchableError as e:
+      debug "Got exception: ", e.msg
+      continue
+waitFor main()
