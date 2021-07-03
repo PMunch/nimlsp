@@ -12,6 +12,7 @@ import regex
 import sequtils
 import uri
 import asyncfile, asyncdispatch
+import streams
 
 const
   version = block:
