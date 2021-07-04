@@ -5,6 +5,7 @@ import json
 import options
 import sequtils
 
+type InitializedParams* = JsonNode
 
 jsonSchema:
   Message:
@@ -324,8 +325,8 @@ jsonSchema:
     workspace?: WorkspaceCapability
     experimental?: any
 
-  InitializedParams:
-    DUMMY?: nil # This is actually an empty object
+  # InitializedParams:
+  #   DUMMY?: nil # This is actually an empty object
 
   ShowMessageParams:
     "type": int # MessageType
