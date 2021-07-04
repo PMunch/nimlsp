@@ -26,9 +26,9 @@ proc sendJson*(s: AsyncFile, data: JsonNode) {.async.} =
 proc readFrame*(s: AsyncFile): Future[string] {.async.} =
   var contentLen = -1
   var headerStarted = false
-
+  var ln:string
   while true:
-    var ln = await s.readLine()
+    ln = await s.readLine()
     if ln.len != 0:
       headerStarted = true
       let sep = ln.find(':')
@@ -42,6 +42,9 @@ proc readFrame*(s: AsyncFile): Future[string] {.async.} =
         if ln.find("utf-8", valueStart) == -1 and ln.find("utf8", valueStart) == -1:
           raise newException(UnsupportedEncoding, "only utf-8 is supported")
       of "Content-Length":
+        when defined(debugCommunication):
+          stderr.write("Content-Length header:" & ln)
+          stderr.write("\n")
         if parseInt(ln, contentLen, valueStart) == 0:
           raise newException(MalformedFrame, "invalid Content-Length: " &
                                               ln.substr(valueStart))
@@ -52,13 +55,21 @@ proc readFrame*(s: AsyncFile): Future[string] {.async.} =
       continue
     else:
       if contentLen != -1:
+        var buf = newString(contentLen)
+        var i = 0
+        while i < contentLen:
+          let r = await s.readBuffer(buf[i].addr,contentLen - i)
+          inc i,r
         when defined(debugCommunication):
-          let msg = await s.read(contentLen)
-          stderr.write(msg.substr(0, 200))
+          stderr.write("expected len:" & $contentLen & " read len:" & $i)
+          stderr.write(ln)
           stderr.write("\n")
-          return msg
+          stderr.write(buf)
+          stderr.write("\n")
+          return buf
         else:
-          return await s.read(contentLen)
+          return buf
       else:
-        raise newException(MalformedFrame, "missing Content-Length header")
+        continue
+        # raise newException(MalformedFrame, "missing Content-Length header")
 

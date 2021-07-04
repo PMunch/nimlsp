@@ -199,7 +199,7 @@ macro createCommands(fileOnly:static[bool] = false, commands: varargs[untyped]) 
       )
     )
 
-createCommands(false,sug,con,def,use,dus)
+createCommands(false,sug,con,def,use,dus,none)
 createCommands(true,chk,highlight,outline,known)
 
 when isMainModule:

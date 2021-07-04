@@ -235,13 +235,17 @@ if not fileExists(nimpath / "config/nim.cfg"):
   quit 1
 
 proc main(){.async.} =
+  var frame:string
+  var msg:JsonNode
+  var message:RequestMessage
   while true:
     try:
       debug "Trying to read frame"
-      let frame = await ins.readFrame
-      let msg = frame.parseJson
+      frame = await ins.readFrame
+      debug "frame len:" & $frame.len
+      msg = frame.parseJson
       if msg.isValid(RequestMessage):
-        let message = RequestMessage(msg)
+        message = RequestMessage(msg)
         debug "Got valid Request message of type " & message["method"].getStr
         if not initialized and message["method"].getStr != "initialize":
           await message.error(-32002, "Unable to accept requests before being initialized", newJNull())
@@ -530,6 +534,8 @@ proc main(){.async.} =
         case message["method"].getStr:
           of "exit":
             debug "Exiting"
+            ins.close
+            outs.close
             if gotShutdown:
               quit 0
             else:
@@ -635,11 +641,13 @@ proc main(){.async.} =
         continue
       else:
         debug "Got unknown message" & frame
+    except JsonParsingError as e:
+      debug "Got exception parsing json: ", e.msg & frame.substr(0, 100)
     except UriParseError as e:
       debug "Got exception parsing URI: ", e.msg
       continue
     except IOError as e:
-      debug "Got exception parsing IOError: ", e.msg
+      debug "Got exception IOError: ", e.msg
       break
     except CatchableError as e:
       debug "Got exception: ", e.msg
