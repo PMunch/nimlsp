@@ -13,6 +13,7 @@ import sequtils
 import uri
 import asyncfile, asyncdispatch
 import streams
+import segfaults
 
 const
   version = block:
@@ -652,6 +653,9 @@ proc main(){.async.} =
       debug "Got exception IOError: ", e.msg
       break
     except CatchableError as e:
+      debug "Got exception: ", e.msg
+      continue
+    except NilAccessDefect as e:
       debug "Got exception: ", e.msg
       continue
 waitFor main()
