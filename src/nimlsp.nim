@@ -41,9 +41,7 @@ type
   UriParseError* = object of Defect
     uri: string
 
-var
-  ins = newAsyncFile(stdin.getOsFileHandle().AsyncFD) #newFileStream(stdin)
-  outs = newAsyncFile(stdout.getOsFileHandle().AsyncFD)#newFileStream(stdout)
+var 
   gotShutdown = false
   initialized = false
   projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: int]]()
@@ -122,14 +120,7 @@ proc parseId(node: JsonNode): int =
   else:
     raise newException(MalformedFrame, "Invalid id node: " & repr(node))
 
-proc respond(request: RequestMessage, data: JsonNode) {.async.}=
-  await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), some(data), none(ResponseError)).JsonNode
 
-proc error(request: RequestMessage, errorCode: int, message: string, data: JsonNode) {.async.}=
-  await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
-
-proc notify(notification: string, data: JsonNode){.async.} =
-  await outs.sendJson create(NotificationMessage, "2.0", notification, some(data)).JsonNode
 
 type Certainty = enum
   None,
@@ -238,6 +229,18 @@ proc main(){.async.} =
   var frame:string
   var msg:JsonNode
   var message:RequestMessage
+  var
+    ins = newAsyncFile(stdin.getOsFileHandle().AsyncFD) #newFileStream(stdin)
+    outs = newAsyncFile(stdout.getOsFileHandle().AsyncFD)#newFileStream(stdout)
+    
+  proc respond(request: RequestMessage, data: JsonNode) {.async.}=
+    await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), some(data), none(ResponseError)).JsonNode
+
+  proc error(request: RequestMessage, errorCode: int, message: string, data: JsonNode) {.async.}=
+    await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
+
+  proc notify(notification: string, data: JsonNode){.async.} =
+    await outs.sendJson create(NotificationMessage, "2.0", notification, some(data)).JsonNode
   while true:
     try:
       debug "Trying to read frame"
