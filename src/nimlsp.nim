@@ -528,6 +528,7 @@ proc main(){.async.} =
               await message.respond response
           else:
             debug "Unknown request"
+            await message.error(errorCode = -32600,message="Unknown request:" & frame ,data = newJObject())
         continue
       elif msg.isValid(NotificationMessage):
         let message = NotificationMessage(msg)
