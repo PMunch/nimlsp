@@ -242,7 +242,6 @@ proc main(){.async.} =
     try:
       debug "Trying to read frame"
       frame = await ins.readFrame
-      debug "frame len:" & $frame.len
       msg = frame.parseJson
       if msg.isValid(RequestMessage):
         message = RequestMessage(msg)
