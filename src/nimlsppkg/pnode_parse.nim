@@ -26,8 +26,7 @@ proc parsePNodeStr*(str: string, filePath:string): tuple[ok:bool,error:ref Excep
   let cache: IdentCache = newIdentCache()
   let config: ConfigRef = newConfigRef()
   var pars: Parser
-  pars.lex.errorHandler =
-    proc(conf: ConfigRef; info: TLineInfo; msg: TMsgKind; arg: string) =
+  pars.lex.errorHandler = proc(conf: ConfigRef; info: TLineInfo; msg: TMsgKind; arg: string) =
       if msg notin {hintLineTooLong}:
         raise ParseError(msg: arg)
 
