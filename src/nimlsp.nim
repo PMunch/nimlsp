@@ -1,4 +1,4 @@
-import nimlsppkg / [baseprotocol, utfmapping, suggestlib, logger]
+import nimlsppkg / [baseprotocol, utfmapping, suggestlib, logger , pnode_parse]
 include nimlsppkg / messages
 import tables
 import strutils
@@ -41,12 +41,12 @@ for i in 1..paramCount():
 type
   UriParseError* = object of Defect
     uri: string
-
+type FileTuple = tuple[projectFile: string,  fingerTable: seq[seq[tuple[u16pos, offset: int]]],syntaxOk:bool,error:ref Exception ]
 var 
   gotShutdown = false
   initialized = false
   projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: int]]()
-  openFiles = initTable[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
+  openFiles = initTable[string, FileTuple ]()
   projects = initHashSet[string]()
   knownDirs = initTable[string, string]() # dir and first picked file path
 
@@ -88,7 +88,7 @@ proc rawLine[T](p:T):int =
 proc rawChar[T](p:T):int =
   p["position"]["character"].getInt
 
-proc col[T](openFiles:Table[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]];p:T):int=
+proc col[T](openFiles:Table[string, FileTuple ];p:T):int=
   openFiles[p.docUri].fingerTable[p.rawLine].utf16to8(p.rawChar)
 
 template textDocumentNotification(message, kind, name, body: untyped): untyped =
@@ -240,8 +240,18 @@ proc main(){.async.} =
   proc error(request: RequestMessage, errorCode: int, message: string, data: JsonNode) {.async.}=
     await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
 
+  proc sendParseError(request: RequestMessage, err: ref Exception) {.async.} = 
+    # %* err.getStackTraceEntries
+    await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, ParseError.ord, err.msg, newJNull() ))).JsonNode
+    
   proc notify(notification: string, data: JsonNode){.async.} =
     await outs.sendJson create(NotificationMessage, "2.0", notification, some(data)).JsonNode
+  
+  template syntaxCheck(request: RequestMessage,p:untyped) =
+    if openFiles[p.docUri].syntaxOk == false:
+      await request.sendParseError(openFiles[p.docUri].error)
+      continue
+  
   while true:
     try:
       debug "Trying to read frame"
@@ -306,6 +316,7 @@ proc main(){.async.} =
             )).JsonNode)
           of "textDocument/completion":
             textDocumentRequest(message, CompletionParams, compRequest):
+              message.syntaxCheck(compRequest)
               debug "Running equivalent of: sug ", compRequest.docUri.uriToPath, ";", compRequest.filestash, ":",
                 compRequest.rawLine + 1, ":",
                 openFiles.col(compRequest)
@@ -341,6 +352,7 @@ proc main(){.async.} =
               await message.respond compRequest.JsonNode
           of "textDocument/hover":
             textDocumentRequest(message,TextDocumentPositionParams, hoverRequest):
+              message.syntaxCheck(hoverRequest)
               debug "Running equivalent of: def ", hoverRequest.docUri.uriToPath, ";", hoverRequest.filestash, ":",
                 hoverRequest.rawLine + 1, ":",
                 openFiles.col(hoverRequest)
@@ -377,6 +389,7 @@ proc main(){.async.} =
                   await message.respond create(Hover, markedString, rangeopt).JsonNode
           of "textDocument/references":
             textDocumentRequest(message,ReferenceParams, referenceRequest):
+              message.syntaxCheck(referenceRequest)
               debug "Running equivalent of: use ", referenceRequest.docUri.uriToPath, ";", referenceRequest.filestash, ":",
                 referenceRequest.rawLine + 1, ":",
                 openFiles.col(referenceRequest)
@@ -403,6 +416,7 @@ proc main(){.async.} =
                 await message.respond response
           of "textDocument/rename":
             textDocumentRequest(message,RenameParams, renameRequest):
+              message.syntaxCheck(renameRequest)
               debug "Running equivalent of: use ", renameRequest.docUri.uriToPath, ";", renameRequest.filestash, ":",
                 renameRequest.rawLine + 1, ":",
                 openFiles.col(renameRequest)
@@ -433,6 +447,7 @@ proc main(){.async.} =
                 ).JsonNode
           of "textDocument/definition":
             textDocumentRequest(message,TextDocumentPositionParams, definitionRequest):
+              message.syntaxCheck(definitionRequest)
               debug "Running equivalent of: def ", definitionRequest.docUri.uriToPath, ";", definitionRequest.filestash, ":",
                 definitionRequest.rawLine + 1, ":",
                 openFiles.col(definitionRequest)
@@ -458,6 +473,7 @@ proc main(){.async.} =
                 await message.respond response
           of "textDocument/documentSymbol":
             textDocumentRequest(message,DocumentSymbolParams, symbolRequest):
+              message.syntaxCheck(symbolRequest)
               debug "Running equivalent of: outline ", symbolRequest.docUri.uriToPath, ";", symbolRequest.filestash
               let sugs = getNimsuggest(symbolRequest.docUri).outline(symbolRequest.docUri.uriToPath, dirtyfile = symbolRequest.filestash)
               let syms = sugs.sortedByIt((it.line,it.column,it.quality)).deduplicate(true)
@@ -488,6 +504,7 @@ proc main(){.async.} =
                 await message.respond response
           of "textDocument/signatureHelp":
             textDocumentRequest(message,TextDocumentPositionParams, signRequest):
+              message.syntaxCheck(signRequest)
               debug "Running equivalent of: con ", signRequest.docUri.uriToPath, ";", signRequest.filestash, ":",
                 signRequest.rawLine + 1, ":",
                 openFiles.col(signRequest)
@@ -551,6 +568,8 @@ proc main(){.async.} =
               let 
                 file = open(textDoc.filestash, fmWrite)
                 projectFile = getProjectFile(textDoc.docUri.uriToPath)
+                text = textDoc["textDocument"]["text"].getStr
+                syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
               debug "New document opened for URI: ", textDoc.docUri, " \nsaving to " & textDoc.filestash
               if not projectFiles.hasKey(projectFile):
                 debug "Initialising project with project file: ", projectFile, "\nnimpath: ", nimpath
@@ -558,11 +577,14 @@ proc main(){.async.} =
                 # debug "Nimsuggest instance project path:" & projectFiles[projectFile].nimsuggest.projectPath
               else:
                 projectFiles[projectFile].openFiles += 1
-              openFiles[textDoc.docUri] = (
+              var t:FileTuple = (
                 projectFile: projectFile,
-                fingerTable: @[]
+                fingerTable: @[],
+                syntaxOk:syntax.ok,
+                error:default(ref Exception)
               )
-              for line in textDoc["textDocument"]["text"].getStr.splitLines:
+              openFiles[textDoc.docUri]  = t
+              for line in text.splitLines:
                 openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
                 file.writeLine line
               file.close()
@@ -573,7 +595,10 @@ proc main(){.async.} =
               openFiles[textDoc.docUri].fingerTable = @[]
               # If range and rangeLength are omitted, the new text is considered to be the full content of the document.
               # here we use TextDocumentSyncKind.Full when initialze
-              for line in textDoc["contentChanges"][0]["text"].getStr.splitLines:
+              let text = textDoc["contentChanges"][0]["text"].getStr
+              let syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
+              openFiles[textDoc.docUri].syntaxOk = syntax.ok
+              for line in text.splitLines:
                 openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
                 file.writeLine line
               file.close()
