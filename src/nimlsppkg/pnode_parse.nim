@@ -1,7 +1,7 @@
 
 from os import nil
 import macros, os
-
+import encodings
 const explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
 
 macro mImport(path: static[string]): untyped =
@@ -20,6 +20,8 @@ const DevNullDir = when defined(windows):"c:\\" else: "/dev"
 const DevNullFile = when defined(windows):"nul" else: "null"
 
 proc parsePNodeStr*(str: string, filePath:string): tuple[ok:bool,error:ref Exception] =
+  # utf16 -> utf8
+  let str = convert(str, "utf-8", "utf-16")
   result.ok = true
   let cache: IdentCache = newIdentCache()
   let config: ConfigRef = newConfigRef()
