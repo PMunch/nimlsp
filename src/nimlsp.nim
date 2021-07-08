@@ -230,6 +230,7 @@ proc main(){.async.} =
   var frame:string
   var msg:JsonNode
   var message:RequestMessage
+  var isRequest:bool
   var
     ins = newAsyncFile(stdin.getOsFileHandle().AsyncFD) #newFileStream(stdin)
     outs = newAsyncFile(stdout.getOsFileHandle().AsyncFD)#newFileStream(stdout)
@@ -282,6 +283,7 @@ proc main(){.async.} =
       frame = await ins.readFrame
       msg = frame.parseJson
       if msg.isValid(RequestMessage):
+        isRequest = true
         message = RequestMessage(msg)
         debug "Got valid Request message of type " & message["method"].getStr
         if not initialized and message["method"].getStr != "initialize":
@@ -572,6 +574,7 @@ proc main(){.async.} =
             await message.error(errorCode = -32600,message="Unknown request:" & frame ,data = newJObject())
         continue
       elif msg.isValid(NotificationMessage):
+        isRequest = false
         let message = NotificationMessage(msg)
         debug "Got valid Notification message of type " & message["method"].getStr
         if not initialized and message["method"].getStr != "exit":
