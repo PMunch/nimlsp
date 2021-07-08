@@ -43,20 +43,22 @@ proc parsePNodeStr*(str: string, filePath:string): tuple[ok:bool,error:ref Excep
       config = config
     )
   except Exception as e:
+    closeParser(pars)
     result.error = e
     result.ok = false
-  finally:
-    closeParser(pars)
+    
   if result.ok == false:
     return result
 
   try:
     discard parseAll(pars)
+    closeParser(pars)
   except ParseError as e:
     result.ok = false
     result.error = e
-  finally:
-    closeParser(pars)
+  except Exception as e:
+    result.error = e
+    result.ok = false
 
 when isMainModule:
 

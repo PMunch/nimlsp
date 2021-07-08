@@ -242,13 +242,37 @@ proc main(){.async.} =
 
   proc sendParseError(request: RequestMessage, err: ref Exception) {.async.} = 
     # %* err.getStackTraceEntries
-    await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, ParseError.ord, err.msg, newJNull() ))).JsonNode
+    await request.respond( newJNull())
+    # await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), error =some(create(ResponseError, ParseError.ord, err.msg,data= newJNull() ))).JsonNode
     
   proc notify(notification: string, data: JsonNode){.async.} =
     await outs.sendJson create(NotificationMessage, "2.0", notification, some(data)).JsonNode
   
+  template pushError(p:untyped,error: ref Exception) =
+    var response: seq[Diagnostic]
+    let stack = error.getStackTraceEntries
+    debug "push Error stack:" & repr stack
+    if stack.len > 0:
+      let diagnostic = stack[0]
+      response.add create(Diagnostic,
+        create(Range,
+          create(Position, diagnostic.line-1,0),
+          create(Position, diagnostic.line-1, 0)
+        ),
+        some(DiagnosticSeverity.Error.int),
+        none(int),
+        some("compiler parser"),
+        error.msg,
+        none(seq[DiagnosticRelatedInformation])
+      )
+      await notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
+        p.docUri,
+        response).JsonNode
+      )
+
   template syntaxCheck(request: RequestMessage,p:untyped) =
     if openFiles[p.docUri].syntaxOk == false:
+      pushError(p,openFiles[p.docUri].error)
       await request.sendParseError(openFiles[p.docUri].error)
       continue
   
@@ -598,6 +622,7 @@ proc main(){.async.} =
               let text = textDoc["contentChanges"][0]["text"].getStr
               let syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
               openFiles[textDoc.docUri].syntaxOk = syntax.ok
+              openFiles[textDoc.docUri].error = syntax.error
               for line in text.splitLines:
                 openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
                 file.writeLine line
@@ -618,10 +643,17 @@ proc main(){.async.} =
                 let file = open(textDoc.filestash, fmWrite)
                 debug "Got document save for URI: ", textDoc.docUri, " saving to ", textDoc.filestash
                 openFiles[textDoc.docUri].fingerTable = @[]
-                for line in textDoc["text"].unsafeGet.getStr.splitLines:
+                let text = textDoc["text"].unsafeGet.getStr
+                let syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
+                openFiles[textDoc.docUri].syntaxOk = syntax.ok
+                openFiles[textDoc.docUri].error = syntax.error
+                for line in text.splitLines:
                   openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
                   file.writeLine line
                 file.close()
+                if not syntax.ok:
+                  pushError(textDoc,syntax.error)
+                  continue
               debug "docUri: ", textDoc.docUri, ", project file: ", openFiles[textDoc.docUri].projectFile, ", dirtyfile: ", textDoc.filestash
               let diagnostics = getNimsuggest(textDoc.docUri).chk(textDoc.docUri.uriToPath, dirtyfile = textDoc.filestash)
               debug "Got diagnostics: ",
@@ -664,7 +696,7 @@ proc main(){.async.} =
                 )
           of "$/cancelRequest":
             message.textDocumentNotification(CancelParams, cancelParams):
-              await outs.sendJson create(ResponseMessage, "2.0", parseId(cancelParams["id"]), none(JsonNode), none(ResponseError)).JsonNode
+              await outs.sendJson create(ResponseMessage, "2.0", parseId(cancelParams["id"]), some(newJObject()), none(ResponseError)).JsonNode
           else:
             debug "Got unknown notification message"
         continue
@@ -679,9 +711,9 @@ proc main(){.async.} =
       debug "Got exception IOError: ", e.msg
       break
     except CatchableError as e:
-      debug "Got exception: ", e.msg
+      debug "Got exception CatchableError: ", e.msg
       continue
     except NilAccessDefect as e:
-      debug "Got exception: ", e.msg
+      debug "Got exception NilAccessDefect: ", e.msg , $ e.getStackTraceEntries
       continue
 waitFor main()
