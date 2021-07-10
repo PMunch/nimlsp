@@ -60,6 +60,7 @@ template textDocumentRequest(message, kind, name, body: untyped): untyped =
       debug("Unable to parse data as " & $kind)
 
 proc docUri[T](p:T):string =
+  # cast[JsonNode](p){"textDocument"}{"uri"}.getStr
   p["textDocument"]["uri"].getStr
 
 proc uriToPath(uri: string): string =
@@ -120,8 +121,6 @@ proc parseId(node: JsonNode): int =
     node.getInt
   else:
     raise newException(MalformedFrame, "Invalid id node: " & repr(node))
-
-
 
 type Certainty = enum
   None,
@@ -272,10 +271,11 @@ proc main(){.async.} =
       )
 
   template syntaxCheck(request: RequestMessage,p:untyped) =
-    if openFiles[p.docUri].syntaxOk == false:
-      pushError(p,openFiles[p.docUri].error)
-      await request.sendParseError(openFiles[p.docUri].error)
-      continue
+    if openFiles.hasKey(p.docUri):
+      if openFiles[p.docUri].syntaxOk == false:
+        pushError(p,openFiles[p.docUri].error)
+        await request.sendParseError(openFiles[p.docUri].error)
+        continue
   
   while true:
     try:
@@ -625,7 +625,8 @@ proc main(){.async.} =
               let text = textDoc["contentChanges"][0]["text"].getStr
               let syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
               openFiles[textDoc.docUri].syntaxOk = syntax.ok
-              openFiles[textDoc.docUri].error = syntax.error
+              if syntax.ok == false:
+                openFiles[textDoc.docUri].error = syntax.error
               for line in text.splitLines:
                 openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
                 file.writeLine line
@@ -649,7 +650,8 @@ proc main(){.async.} =
                 let text = textDoc["text"].unsafeGet.getStr
                 let syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
                 openFiles[textDoc.docUri].syntaxOk = syntax.ok
-                openFiles[textDoc.docUri].error = syntax.error
+                if syntax.ok == false:
+                  openFiles[textDoc.docUri].error = syntax.error
                 for line in text.splitLines:
                   openFiles[textDoc.docUri].fingerTable.add line.createUTFMapping()
                   file.writeLine line
@@ -717,6 +719,9 @@ proc main(){.async.} =
       debug "Got exception CatchableError: ", e.msg
       continue
     except NilAccessDefect as e:
-      debug "Got exception NilAccessDefect: ", e.msg , $ e.getStackTraceEntries
+      if isRequest:
+        # some(%*  e.getStackTraceEntries)
+        await message.error(InternalError.ord, e.msg, newJString($ e.getStackTraceEntries()) )
+      debug "Got exception NilAccessDefect: ", e.msg , $ e.getStackTraceEntries()
       continue
 waitFor main()

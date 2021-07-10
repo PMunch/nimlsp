@@ -13,15 +13,17 @@ mImport(os.joinPath( "compiler" , "idents.nim"))
 mImport(os.joinPath( "compiler" , "options.nim"))
 mImport(os.joinPath( "compiler" , "pathutils.nim"))
 mImport(os.joinPath( "compiler" , "lineinfos.nim"))
-mImport(os.joinPath( "compiler" , "ast.nim"))
+# mImport(os.joinPath( "compiler" , "ast.nim"))
 
 type ParseError = ref object of CatchableError
 const DevNullDir = when defined(windows):"c:\\" else: "/dev"
 const DevNullFile = when defined(windows):"nul" else: "null"
 
-proc parsePNodeStr*(str: string, filePath:string): tuple[ok:bool,error:ref Exception] =
+proc parsePNodeStr*(str: string, filePath:string , needConvert = false): tuple[ok:bool,error:ref Exception] =
   # utf16 -> utf8
-  let str = convert(str, "utf-8", "utf-16")
+  var mStr = str
+  if needConvert:
+    mStr = convert(str, "utf-8", "utf-16")
   result.ok = true
   let cache: IdentCache = newIdentCache()
   let config: ConfigRef = newConfigRef()
@@ -39,7 +41,7 @@ proc parsePNodeStr*(str: string, filePath:string): tuple[ok:bool,error:ref Excep
     openParser(
       p = pars,
       filename = AbsoluteFile(filePath),
-      inputStream = llStreamOpen(str),
+      inputStream = llStreamOpen(mStr),
       cache = cache,
       config = config
     )
@@ -62,8 +64,9 @@ proc parsePNodeStr*(str: string, filePath:string): tuple[ok:bool,error:ref Excep
     result.ok = false
 
 when isMainModule:
-
-  let r = parsePNodeStr("	const a = 1",currentSourcePath)
+  let file = currentSourcePath.parentDir.parentDir / "nimlsp.nim"
+  let r = parsePNodeStr(readFile(file),file,false)
   echo r.ok
-  echo r.error.name
-  echo r.error.msg
+  if not r.ok:
+    echo r.error.name
+    echo r.error.msg
