@@ -1,4 +1,4 @@
-import strutils, parseutils, json
+import strutils, parseutils, json,logging
 import asyncfile, asyncdispatch
 type
   BaseProtocolError* = object of Defect
@@ -13,10 +13,9 @@ proc skipWhitespace(x: string, pos: int): int =
 
 proc sendFrame*(s: AsyncFile, frame: string){.async} =
   when defined(debugCommunication):
-    stderr.write(frame)
-    stderr.write("\n")
+    info(frame)
+    info("\n")
   await s.write "Content-Length: " & $frame.len & "\r\n\r\n" & frame
-  # s.flush
 
 proc sendJson*(s: AsyncFile, data: JsonNode) {.async.} =
   var frame = newStringOfCap(1024)
@@ -43,8 +42,8 @@ proc readFrame*(s: AsyncFile): Future[string] {.async.} =
           raise newException(UnsupportedEncoding, "only utf-8 is supported")
       of "Content-Length":
         when defined(debugCommunication):
-          stderr.write("Content-Length header:" & ln)
-          stderr.write("\n")
+          info("Content-Length header:" & ln)
+          info("\n")
         if parseInt(ln, contentLen, valueStart) == 0:
           raise newException(MalformedFrame, "invalid Content-Length: " &
                                               ln.substr(valueStart))
@@ -61,11 +60,11 @@ proc readFrame*(s: AsyncFile): Future[string] {.async.} =
           let r = await s.readBuffer(buf[i].addr,contentLen - i)
           inc i,r
         when defined(debugCommunication):
-          stderr.write("expected len:" & $contentLen & " read len:" & $i)
-          stderr.write(ln)
-          stderr.write("\n")
-          stderr.write(buf)
-          stderr.write("\n")
+          info("expected len:" & $contentLen & " read len:" & $i)
+          info(ln)
+          info("\n")
+          info(buf)
+          info("\n")
           return buf
         else:
           return buf

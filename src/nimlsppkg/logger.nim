@@ -1,6 +1,9 @@
-import os
+import os,logging
 let
   storage* = getTempDir() / "nimlsp"
+
+let rollingLog = newRollingFileLogger(getHomeDir() / "nimlsp.com.log")
+addHandler(rollingLog)
 
 when defined(debugLogging):
   discard existsOrCreateDir(storage)
@@ -8,8 +11,8 @@ when defined(debugLogging):
 
 template debug*(args: varargs[string, `$`]) =
   when defined(debugLogging):
-    stderr.write(join args)
-    stderr.write("\n")
+    info(join args)
+    info("\n")
     logFile.write(join args)
     logFile.write("\n\n")
     logFile.flushFile()

@@ -241,7 +241,8 @@ proc main(){.async.} =
     await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
 
   proc sendParseError(request: RequestMessage, err: ref Exception) {.async.} = 
-    await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), error =some(create(ResponseError, ParseError.ord, err.msg,data= newJString($ err.getStackTraceEntries()) ))).JsonNode
+    # await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), error =some(create(ResponseError, ParseError.ord, err.msg,data= newJString($ err.getStackTraceEntries()) ))).JsonNode
+    await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), none(ResponseError)).JsonNode
     
   proc notify(notification: string, data: JsonNode){.async.} =
     await outs.sendJson create(NotificationMessage, "2.0", notification, some(data)).JsonNode
