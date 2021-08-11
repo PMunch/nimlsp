@@ -10,8 +10,6 @@ bin           = @["nimlsp"]
 # Dependencies
 
 requires "nim >= 1.0.0"
-#requires "packedjson"
-requires "astpatternmatching"
 requires "jsonschema >= 0.2.1"
 
 # nimble test does not work for me out of the box
