@@ -44,6 +44,10 @@ proc `$`*(suggestion: Suggest): string =
   result.add "prefix: " & $suggestion.prefix
   result.add ")"
 
+func collapseByIdentifier*(suggestion: Suggest): string =
+  ## Function to create an identifier that can be used to remove duplicates in a list
+  suggestion.qualifiedPath[^1] & "__" & $suggestion.symKind.TSymKind
+
 func nimSymToLSPKind*(suggest: Suggest): CompletionItemKind =
   case $suggest.symKind.TSymKind:
   of "skConst": CompletionItemKind.Value
