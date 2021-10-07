@@ -4,7 +4,8 @@ Nim Language Server Protocol
 
 This is a `Language Server Protocol
 <https://microsoft.github.io/language-server-protocol/>`_ implementation in
-Nim, for Nim. It is based on nimsuggest, which means that every editor that
+Nim, for Nim.
+It is based on nimsuggest, which means that every editor that
 supports LSP will now have the same quality of suggestions that has previously
 only been available in supported editors.
 
@@ -19,7 +20,7 @@ install `nimlsp` is to use `nimble` with:
 
 This will compile and install it in the `nimble` binary directory, which if
 you have set up `nimble` correctly it should be in your path. When compiling
-and using `nimlsp` it needs to have Nims sources available in order to work.
+and using `nimlsp` it needs to have Nim's sources available in order to work.
 With Nim installed through `choosenim` these should already be on your system
 and `nimlsp` should be able to find and use them automatically. However if you
 have installed `nimlsp` in a different way you might run into issues where it
@@ -34,10 +35,10 @@ Compile `nimlsp`
 =======
 If you want more control over the compilation feel free to clone the
 repository. `nimlsp` depends on the `nimsuggest` sources which is in the main
-Nim repository, so make you you have a copy of that somewhere. Manually having a
+Nim repository, so make sure you have a copy of that somewhere. Manually having a
 copy of Nim this way means the default source path will not work so you need to
 set it explicitly on compilation with `-d:explicitSourcePath=PATH` and point to
-it on runtime (technically the runtime should only need the stdlib, so omitting
+it at runtime (technically the runtime should only need the stdlib, so omitting
 it will make `nimlsp` try to find it from your Nim install).
 
 To do the standard build run:
@@ -86,52 +87,47 @@ Status  LSP Command
 
 Setting up `nimlsp`
 =======
-Sublime
+Sublime Text
 -------
-First you need a LSP client, the one that's been tested is
-https://github.com/tomv564/LSP. It's certainly not perfect, but it works well
-enough.
+Install the `LSP plugin <https://packagecontrol.io/packages/LSP>`_.
+Install the `NimLime plugin <https://packagecontrol.io/packages/NimLime>`_ for syntax highlighting.
 
-Once you have it installed you'll want to grab NimLime as well. NimLime can
-perform many of the same features that `nimlsp` does, but we're only interested
-in syntax highlighting and some definitions. If you know how to disable the
-overlapping features or achieve this in another way please update this section.
-
-Now in order to set up LSP itself enter its settings and add this:
+Apart from syntax highlighting, NimLime can perform many of the features that ``nimlsp`` provides.
+It is recommended to disable those for optimal experience.
+For this, navigate to ``Preferences > Package Settings > NimLime > Settings`` and set ``*.enabled`` settings to ``false``:
 
 .. code:: js
 
    {
-      "clients":
-      {
-         "nim":
-         {
-            "command":
-            [
-               "<path to nimlsp>/nimlsp" // This can be changed if you put nimlsp in your PATH
-            ],
-            "enabled": true,
-            "env":
-            {
-               "PATH": "<home directory>/.nimble/bin" // To be able to find nimsuggest, can be changed if you have nimsuggest in your PATH
-            },
-            "languageId": "nim",
-            "scopes":
-            [
-               "source.nim"
-            ],
-            "syntaxes":
-            [
-               "Packages/NimLime/Syntaxes/Nim.tmLanguage"
-            ]
-         }
-      },
-      // These are mostly for debugging feel free to remove them
-      // If you build nimlsp without debug information it doesn't
-      // write anything to stderr
-      "log_payloads": true,
-      "log_stderr": true
+      "error_handler.enabled": false,
+      "check.on_save.enabled": false,
+      "check.current_file.enabled": false,
+      "check.external_file.enabled": false,
+      "check.clear_errors.enabled": false,
    }
+
+To set up LSP, run `Preferences: LSP settings` from the command palette and add the following:
+
+.. code:: js
+
+   {
+      "clients": {
+         "nimlsp": {
+            "command": ["nimlsp"],
+            "enabled": true,
+
+            // ST4 only
+            "selector": "source.nim",
+
+            // ST3 only
+            "languageId": "nim",
+            "scopes": ["source.nim"],
+            "syntaxes": ["Packages/NimLime/Syntaxes/Nim.tmLanguage"]
+         }
+      }
+   }
+
+*Note: Make sure ``<path/to>/.nimble/bin`` is added to your ``PATH``.
 
 Vim
 -------
