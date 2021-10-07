@@ -9,37 +9,37 @@ It is based on nimsuggest, which means that every editor that
 supports LSP will now have the same quality of suggestions that has previously
 only been available in supported editors.
 
-Installing `nimlsp`
+Installing ``nimlsp``
 =======
-If you have installed Nim through `choosenim` (recommended) the easiest way to
-install `nimlsp` is to use `nimble` with:
+If you have installed Nim through ``choosenim`` (recommended) the easiest way to
+install ``nimlsp`` is to use ``nimble`` with:
 
 .. code:: bash
 
    nimble install nimlsp
 
-This will compile and install it in the `nimble` binary directory, which if
-you have set up `nimble` correctly it should be in your path. When compiling
-and using `nimlsp` it needs to have Nim's sources available in order to work.
-With Nim installed through `choosenim` these should already be on your system
-and `nimlsp` should be able to find and use them automatically. However if you
-have installed `nimlsp` in a different way you might run into issues where it
+This will compile and install it in the ``nimble`` binary directory, which if
+you have set up ``nimble`` correctly it should be in your path. When compiling
+and using ``nimlsp`` it needs to have Nim's sources available in order to work.
+With Nim installed through ``choosenim`` these should already be on your system
+and ``nimlsp`` should be able to find and use them automatically. However if you
+have installed ``nimlsp`` in a different way you might run into issues where it
 can't find certain files during compilation/running. To fix this you need to
-grab a copy of Nim sources and then point `nimlsp` at them on compile-time by
-using `-d:explicitSourcePath=PATH`, where `PATH` is where you have your Nim
+grab a copy of Nim sources and then point ``nimlsp`` at them on compile-time by
+using ``-d:explicitSourcePath=PATH``, where ``PATH`` is where you have your Nim
 sources. You can also pass them at run-time (if for example you're working with
-a custom copy of the stdlib by passing it as an argument to `nimlsp`. How
+a custom copy of the stdlib by passing it as an argument to ``nimlsp``. How
 exectly to do that will depend on the LSP client.
 
-Compile `nimlsp`
+Compile ``nimlsp``
 =======
 If you want more control over the compilation feel free to clone the
-repository. `nimlsp` depends on the `nimsuggest` sources which is in the main
+repository. ``nimlsp`` depends on the ``nimsuggest`` sources which are in the main
 Nim repository, so make sure you have a copy of that somewhere. Manually having a
 copy of Nim this way means the default source path will not work so you need to
-set it explicitly on compilation with `-d:explicitSourcePath=PATH` and point to
+set it explicitly on compilation with ``-d:explicitSourcePath=PATH`` and point to
 it at runtime (technically the runtime should only need the stdlib, so omitting
-it will make `nimlsp` try to find it from your Nim install).
+it will make ``nimlsp`` try to find it from your Nim install).
 
 To do the standard build run:
 
@@ -47,7 +47,7 @@ To do the standard build run:
 
    nimble build
 
-Or if you want debug output when `nimlsp` is running:
+Or if you want debug output when ``nimlsp`` is running:
 
 .. code:: bash
 
@@ -85,7 +85,7 @@ Status  LSP Command
 ======  ================================
 
 
-Setting up `nimlsp`
+Setting up ``nimlsp``
 =======
 Sublime Text
 -------
@@ -106,7 +106,7 @@ For this, navigate to ``Preferences > Package Settings > NimLime > Settings`` an
       "check.clear_errors.enabled": false,
    }
 
-To set up LSP, run `Preferences: LSP settings` from the command palette and add the following:
+To set up LSP, run ``Preferences: LSP settings`` from the command palette and add the following:
 
 .. code:: js
 
@@ -127,11 +127,11 @@ To set up LSP, run `Preferences: LSP settings` from the command palette and add 
       }
    }
 
-*Note: Make sure ``<path/to>/.nimble/bin`` is added to your ``PATH``.
+*Note: Make sure ``<path/to>/.nimble/bin`` is added to your ``PATH``.*
 
 Vim
 -------
-To use `nimlsp` in Vim install the `prabirshrestha/vim-lsp` plugin and
+To use ``nimlsp`` in Vim install the ``prabirshrestha/vim-lsp`` plugin and
 dependencies:
 
 .. code:: vim
@@ -141,7 +141,7 @@ dependencies:
    Plugin 'prabirshrestha/vim-lsp'
    Plugin 'prabirshrestha/asyncomplete-lsp.vim'
 
-Then set it up to use `nimlsp` for Nim files:
+Then set it up to use ``nimlsp`` for Nim files:
 
 .. code:: vim
 
@@ -206,9 +206,9 @@ To use it:
 
 1. Install the LSP and the nim plugin.
 
-2. Go into settings > Language & Frameworks > Language Server Protocol > Server Definitions.
+2. Go into ``settings > Language & Frameworks > Language Server Protocol > Server Definitions``.
 
-3. Set the LSP mode to `executable`, the extension to `nim` and in the Path, the path to your nimlsp executable.
+3. Set the LSP mode to ``executable``, the extension to ``nim`` and in the Path, the path to your nimlsp executable.
 
 4. Hit apply and everything should be working now.
 
@@ -216,9 +216,9 @@ Kate
 -------
 The LSP plugin has to be enabled in the Kate (version >= 19.12.0) plugins menu:
 
-1. In Settings > Configure Kate > Application > Plugins, check box next to "LSP Client" to enable LSP functionality.
+1. In ``Settings > Configure Kate > Application > Plugins``, check box next to ``LSP Client`` to enable LSP functionality.
 
-2. Go to the now-available LSP Client menu (Settings > Configure Kate > Application) and enter the following in the User Server Settings tab:
+2. Go to the now-available LSP Client menu (``Settings > Configure Kate > Application``) and enter the following in the User Server Settings tab:
 
 .. code:: json
 
@@ -232,8 +232,8 @@ The LSP plugin has to be enabled in the Kate (version >= 19.12.0) plugins menu:
        }
    }
 
-This assumes that nimlsp was installed through nimble. **Note:** 
-Server initialization may fail without full path specified, from home directory, under the ``"command"`` entry, even if nimlsp is in system's ``PATH``. 
+This assumes that nimlsp was installed through nimble.
+*Note: Server initialization may fail without full path specified, from home directory, under the ``"command"`` entry, even if nimlsp is in system's ``PATH``.*
 
 Run Tests
 =========
