@@ -275,25 +275,41 @@ while true:
             debugEcho "Found suggestions: ",
               suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
               (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
-            var completionItems = newJarray()
+            var
+              completionItems = newJarray()
+              seenLabels: CountTable[string]
+              addedSuggestions: HashSet[string]
             for suggestion in suggestions:
-              completionItems.add create(CompletionItem,
-                label = suggestion.qualifiedPath[^1],
-                kind = some(nimSymToLSPKind(suggestion).int),
-                detail = some(nimSymDetails(suggestion)),
-                documentation = some(suggestion.nimDocstring),
-                deprecated = none(bool),
-                preselect = none(bool),
-                sortText = none(string),
-                filterText = none(string),
-                insertText = none(string),
-                insertTextFormat = none(int),
-                textEdit = none(TextEdit),
-                additionalTextEdits = none(seq[TextEdit]),
-                commitCharacters = none(seq[string]),
-                command = none(Command),
-                data = none(JsonNode)
-              ).JsonNode
+              seenLabels.inc suggestion.collapseByIdentifier
+            for suggestion in suggestions:
+              let collapsed = suggestion.collapseByIdentifier
+              if not addedSuggestions.contains collapsed:
+                addedSuggestions.incl collapsed
+                let
+                  seenTimes = seenLabels[collapsed]
+                  detail =
+                    if seenTimes == 1: some(nimSymDetails(suggestion))
+                    else: some("[" & $seenTimes & " overloads]")
+                  docstring =
+                    if seenTimes == 1: some(suggestion.nimDocstring)
+                    else: none(string)
+                completionItems.add create(CompletionItem,
+                  label = suggestion.qualifiedPath[^1].strip(chars = {'`'}),
+                  kind = some(nimSymToLSPKind(suggestion).int),
+                  detail = detail,
+                  documentation = docstring,
+                  deprecated = none(bool),
+                  preselect = none(bool),
+                  sortText = none(string),
+                  filterText = none(string),
+                  insertText = none(string),
+                  insertTextFormat = none(int),
+                  textEdit = none(TextEdit),
+                  additionalTextEdits = none(seq[TextEdit]),
+                  commitCharacters = none(seq[string]),
+                  command = none(Command),
+                  data = none(JsonNode)
+                ).JsonNode
             message.respond completionItems
         of "textDocument/hover":
           message.textDocumentRequest(TextDocumentPositionParams, hoverRequest):
