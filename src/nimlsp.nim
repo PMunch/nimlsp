@@ -11,7 +11,6 @@ import uri
 import osproc
 
 const
-  storage = getTempDir() / "nimlsp"
   version = block:
     var version = "0.0.0"
     let nimbleFile = staticRead(currentSourcePath().parentDir().parentDir() / "nimlsp.nimble")
@@ -30,6 +29,7 @@ type
     uri: string
 
 var nimpath = explicitSourcePath
+var storage = getTempDir() / "nimlsp"
 
 discard existsOrCreateDir(storage)
 
