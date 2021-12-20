@@ -457,6 +457,9 @@ while true:
               message.respond response
         of "textDocument/signatureHelp":
           message.textDocumentRequest(TextDocumentPositionParams, sigHelpRequest):
+            debugEcho "Running equivalent of: con ", uriToPath(fileuri), ";", filestash, ":",
+              rawLine + 1, ":",
+              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
             let suggestions = getNimsuggest(fileuri).con(uriToPath(fileuri), dirtyfile = filestash, rawLine + 1, rawChar)
             var signatures = newSeq[SignatureInformation]()
             for suggestion in suggestions:
