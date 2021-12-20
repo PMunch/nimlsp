@@ -240,10 +240,9 @@ while true:
               resolveProvider = some(false),
               triggerCharacters = some(@[".", " "])
             )), # ?: CompletionOptions
-            signatureHelpProvider = none(SignatureHelpOptions),
-            #signatureHelpProvider = some(create(SignatureHelpOptions,
-            #  triggerCharacters = some(@["(", ","])
-            #)), # ?: SignatureHelpOptions
+            signatureHelpProvider = some(create(SignatureHelpOptions,
+              triggerCharacters = some(@["(", ","])
+            )), # ?: SignatureHelpOptions
             definitionProvider = some(true), #?: bool
             typeDefinitionProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
             implementationProvider = none(bool), #?: bool or TextDocumentAndStaticRegistrationOptions
@@ -456,19 +455,28 @@ while true:
                   none(string)
                 ).JsonNode
               message.respond response
-        #of "textDocument/signatureHelp":
-        #  if message["params"].isSome:
-        #    let signRequest = message["params"].unsafeGet
-        #    whenValid(signRequest, TextDocumentPositionParams):
-        #      let
-        #        fileuri = signRequest["textDocument"]["uri"].getStr
-        #        filestash = storage / (hash(fileuri).toHex & ".nim" )
-        #      debugEcho "Got signature request for URI: ", fileuri, " copied to " & filestash
-        #      let
-        #        rawLine = signRequest["position"]["line"].getInt
-        #        rawChar = signRequest["position"]["character"].getInt
-        #        suggestions = getNimsuggest(fileuri).con(uriToPath(fileuri), dirtyfile = filestash, rawLine + 1, rawChar)
+        of "textDocument/signatureHelp":
+          message.textDocumentRequest(TextDocumentPositionParams, sigHelpRequest):
+            debugEcho "Running equivalent of: con ", uriToPath(fileuri), ";", filestash, ":",
+              rawLine + 1, ":",
+              openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
+            let suggestions = getNimsuggest(fileuri).con(uriToPath(fileuri), dirtyfile = filestash, rawLine + 1, rawChar)
+            var signatures = newSeq[SignatureInformation]()
+            for suggestion in suggestions:
+              var label = suggestion.qualifiedPath.join(".")
+              if suggestion.forth != "":
+                label &= ": " & suggestion.forth
+              signatures.add create(SignatureInformation,
+                label = label,
+                documentation = some(suggestion.nimDocstring),
+                parameters = none(seq[ParameterInformation])
+              )
 
+            message.respond create(SignatureHelp,
+              signatures = signatures,
+              activeSignature = some(0),
+              activeParameter = some(0)
+            ).JsonNode
         else:
           debugEcho "Unknown request"
       continue
@@ -628,4 +636,3 @@ while true:
   except CatchableError as e:
     debugEcho "Got exception: ", e.msg
     continue
-
