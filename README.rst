@@ -79,7 +79,7 @@ Status  LSP Command
 ☑ DONE  textDocument/hover
 ☑ DONE  textDocument/rename
 ☑ DONE  textDocument/references
-☐ TODO  textDocument/signatureHelp
+☑ DONE  textDocument/signatureHelp
 ☑ DONE  textDocument/publishDiagnostics
 ☐ TODO  workspace/symbol
 ======  ================================
