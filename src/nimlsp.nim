@@ -288,7 +288,7 @@ while true:
                   seenTimes = seenLabels[collapsed]
                   detail =
                     if seenTimes == 1: some(nimSymDetails(suggestion))
-                    else: some("[" & $seenTimes & " overloads]")
+                    else: some(nimSymDetails(suggestions[0]) & " (+ " & $(seenTimes - 1) & " overload(s))")
                   docstring =
                     if seenTimes == 1: some(suggestion.nimDocstring)
                     else: none(string)
