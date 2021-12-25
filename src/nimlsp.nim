@@ -289,14 +289,11 @@ while true:
                   detail =
                     if seenTimes == 1: some(nimSymDetails(suggestion))
                     else: some(nimSymDetails(suggestions[0]) & " (+ " & $(seenTimes - 1) & " overload(s))")
-                  docstring =
-                    if seenTimes == 1: some(suggestion.nimDocstring)
-                    else: none(string)
                 completionItems.add create(CompletionItem,
                   label = suggestion.qualifiedPath[^1].strip(chars = {'`'}),
                   kind = some(nimSymToLSPKind(suggestion).int),
                   detail = detail,
-                  documentation = docstring,
+                  documentation = some(suggestion.nimDocstring),
                   deprecated = none(bool),
                   preselect = none(bool),
                   sortText = none(string),
