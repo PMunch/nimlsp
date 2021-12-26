@@ -288,7 +288,7 @@ while true:
                   seenTimes = seenLabels[collapsed]
                   detail =
                     if seenTimes == 1: some(nimSymDetails(suggestion))
-                    else: some(nimSymDetails(suggestions[0]) & " (+ " & $(seenTimes - 1) & " overload(s))")
+                    else: some(nimSymDetails(suggestion) & " (+ " & $(seenTimes - 1) & " overload(s))")
                 completionItems.add create(CompletionItem,
                   label = suggestion.qualifiedPath[^1].strip(chars = {'`'}),
                   kind = some(nimSymToLSPKind(suggestion).int),
