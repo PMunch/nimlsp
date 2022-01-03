@@ -4,6 +4,7 @@ import tables
 import strutils
 import os
 import hashes
+import sets
 import uri
 import algorithm
 import strscans
@@ -28,6 +29,10 @@ const
     version
   # This is used to explicitly set the default source path
   explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
+
+type
+  UriParseError* = object of Defect
+    uri: string
 
 var nimpath = explicitSourcePath
 
@@ -114,6 +119,25 @@ proc pathToUri(path: string): string =
       add(result, '%')
       add(result, toHex(ord(c), 2))
 
+proc uriToPath(uri: string): string =
+  ## Convert an RFC 8089 file URI to a native, platform-specific, absolute path.
+  #let startIdx = when defined(windows): 8 else: 7
+  #normalizedPath(uri[startIdx..^1])
+  let parsed = uri.parseUri
+  if parsed.scheme != "file":
+    var e = newException(UriParseError, "Invalid scheme: " & parsed.scheme & ", only \"file\" is supported")
+    e.uri = uri
+    raise e
+  if parsed.hostname != "":
+    var e = newException(UriParseError, "Invalid hostname: " & parsed.hostname & ", only empty hostname is supported")
+    e.uri = uri
+    raise e
+  return normalizedPath(
+    when defined(windows):
+      parsed.path[1..^1]
+    else:
+      parsed.path).decodeUrl
+
 proc parseId(node: JsonNode): int =
   if node.kind == JString:
     parseInt(node.getStr)
@@ -176,32 +200,22 @@ proc getProjectFile(file: string): string =
       return knownDirs[path]
     if projectFiles.hasKey(result):
       return result
-    for project in projects:
-      if path.isRelativeTo(project):
-        # return project
-        for file in walkFiles( path / "*.nimble"):
-          if certainty <= Nimble:
-            # Read the .nimble file and find the project file
-            # TODO interate with nimble api to find project file ,currently just string match
-            let (dir, fname, ext) = file.splitFile()
-            scanSrcDir(file, srcDir)
-            if srcDir.len > 0:
-              if fileExists(path / srcDir / fname.addFileExt(".nim")):
-                finalSrcDir = path / srcDir
-            elif srcDir.len == 0:
-              if fileExists(path / "src" / fname.addFileExt(".nim")):
-                finalSrcDir = path / "src"
-            if finalSrcDir.len > 0:
-              if result.isRelativeTo(finalSrcDir):
-                debug "File " & result & " is relative to: " & finalSrcDir
-                return finalSrcDir / fname.addFileExt(".nim")
-              else:
-                debug "File " & result & " is not relative to: " & finalSrcDir & " need another nimsuggest"
-                if knownDirs.hasKey(result.parentDir):
-                  return knownDirs[result.parentDir]
-                else:
-                  knownDirs[result.parentDir] = result
-                return result
+    if certainty <= Nimble:
+      for nimble in walkFiles(path / "*.nimble"):
+        let info = execProcess("nimble dump " & nimble)
+        var sourceDir, name: string
+        for line in info.splitLines:
+          if line.startsWith("srcDir"):
+            sourceDir = path / line[(1 + line.find '"')..^2]
+          if line.startsWith("name"):
+            name = line[(1 + line.find '"')..^2]
+        let projectFile = sourceDir / (name & ".nim")
+        if sourceDir.len != 0 and name.len != 0 and
+            file.isRelativeTo(sourceDir) and fileExists(projectFile):
+          if not knownDirs.hasKey(sourceDir):
+            knownDirs[sourceDir] = result
+          result = projectFile
+          certainty = Nimble
     path = dir
 
 template getNimsuggest(docUri: string): Nimsuggest =

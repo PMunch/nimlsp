@@ -43,6 +43,9 @@ proc `$`*(suggestion: Suggest): string =
 
 proc `==`*(a,b: Suggest): bool =
   result = a.filePath == b.filePath and a.line == b.line and a.column == b.column and a.qualifiedPath == b.qualifiedPath and a.section == b.section
+func collapseByIdentifier*(suggestion: Suggest): string =
+  ## Function to create an identifier that can be used to remove duplicates in a list
+  suggestion.qualifiedPath[^1] & "__" & $suggestion.symKind.TSymKind
 
 func nimSymToLSPKind*(suggest: Suggest): CompletionItemKind =
   case $suggest.symKind.TSymKind:
@@ -201,6 +204,9 @@ macro createCommands(fileOnly:static[bool] = false, commands: varargs[untyped]) 
 
 createCommands(false,sug,con,def,use,dus,none)
 createCommands(true,chk,highlight,outline,known)
+
+proc `mod`*(nimsuggest: NimSuggest, file: string, dirtyfile = ""): seq[Suggest] =
+  nimsuggest.runCmd(ideMod, AbsoluteFile file, AbsoluteFile dirtyfile, 0, 0)
 
 when isMainModule:
   var graph = initNimSuggest(currentSourcePath, nimPath = getCurrentCompilerExe().parentDir.parentDir)

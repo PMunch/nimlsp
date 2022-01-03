@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.5"
+version       = "0.3.2"
 author        = "PMunch"
 description   = "Nim Language Server Protocol - nimlsp implements the Language Server Protocol"
 license       = "MIT"
@@ -10,8 +10,6 @@ bin           = @["nimlsp"]
 # Dependencies
 
 requires "nim >= 1.0.0"
-#requires "packedjson"
-requires "astpatternmatching"
 requires "jsonschema >= 0.2.1"
 requires "regex"
 # nimble test does not work for me out of the box
