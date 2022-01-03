@@ -15,6 +15,7 @@ import uri
 import asyncfile, asyncdispatch
 import streams
 import segfaults
+import osproc
 
 const
   version = block:
@@ -29,10 +30,6 @@ const
     version
   # This is used to explicitly set the default source path
   explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
-
-type
-  UriParseError* = object of Defect
-    uri: string
 
 var nimpath = explicitSourcePath
 
@@ -67,23 +64,6 @@ template textDocumentRequest(message, kind, name, body: untyped): untyped =
 proc docUri[T](p:T):string =
   # cast[JsonNode](p){"textDocument"}{"uri"}.getStr
   p["textDocument"]["uri"].getStr
-
-proc uriToPath(uri: string): string =
-  ## Convert an RFC 8089 file URI to a native, platform-specific, absolute path.
-  let parsed = uri.parseUri
-  if parsed.scheme != "file":
-    var e = newException(UriParseError, "Invalid scheme: " & parsed.scheme & ", only \"file\" is supported")
-    e.uri = uri
-    raise e
-  if parsed.hostname != "":
-    var e = newException(UriParseError, "Invalid hostname: " & parsed.hostname & ", only empty hostname is supported")
-    e.uri = uri
-    raise e
-  return normalizedPath(
-    when defined(windows):
-      parsed.path[1..^1]
-    else:
-      parsed.path).decodeUrl
 
 proc filestash[T](p:T):string =
   storage / (hash(p.docUri).toHex & ".nim" )
