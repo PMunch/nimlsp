@@ -1,4 +1,5 @@
-import streams, strutils, parseutils, json
+import strutils, parseutils, json
+import asyncfile, asyncdispatch
 
 type
   BaseProtocolError* = object of Defect
@@ -11,24 +12,23 @@ proc skipWhitespace(x: string, pos: int): int =
   while result < x.len and x[result] in Whitespace:
     inc result
 
-proc sendFrame*(s: Stream, frame: string) =
+proc sendFrame*(s: AsyncFile, frame: string) {.async} =
   when defined(debugCommunication):
     stderr.write(frame)
     stderr.write("\n")
-  s.write "Content-Length: " & $frame.len & "\r\n\r\n" & frame
-  s.flush
+  await s.write "Content-Length: " & $frame.len & "\r\n\r\n" & frame
 
-proc sendJson*(s: Stream, data: JsonNode) =
+proc sendJson*(s: AsyncFile, data: JsonNode) {.async.} =
   var frame = newStringOfCap(1024)
   toUgly(frame, data)
-  s.sendFrame(frame)
+  await s.sendFrame(frame)
 
-proc readFrame*(s: Stream): TaintedString =
+proc readFrame*(s: AsyncFile): Future[string] {.async.} =
   var contentLen = -1
   var headerStarted = false
 
   while true:
-    var ln = string s.readLine()
+    var ln = await s.readLine()
 
     if ln.len != 0:
       headerStarted = true
@@ -53,13 +53,17 @@ proc readFrame*(s: Stream): TaintedString =
       continue
     else:
       if contentLen != -1:
+        var buf = newString(contentLen)
+        var i = 0
+        while i < contentLen:
+          let r = await s.readBuffer(buf[i].addr,contentLen - i)
+          inc i,r
         when defined(debugCommunication):
-          let msg = s.readStr(contentLen)
-          stderr.write(msg)
+          stderr.write(buf)
           stderr.write("\n")
-          return msg
+          return buf
         else:
-          return s.readStr(contentLen)
+          return buf
       else:
         raise newException(MalformedFrame, "missing Content-Length header")
 
