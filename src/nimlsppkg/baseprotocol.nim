@@ -56,14 +56,11 @@ proc readFrame*(s: AsyncFile): Future[string] {.async.} =
         var buf = newString(contentLen)
         var i = 0
         while i < contentLen:
-          let r = await s.readBuffer(buf[i].addr,contentLen - i)
-          inc i,r
+          let r = await s.readBuffer(buf[i].addr, contentLen - i)
+          i += r
         when defined(debugCommunication):
-          stderr.write(buf)
-          stderr.write("\n")
-          return buf
-        else:
-          return buf
+          stderr.writeLine(buf)
+        return buf
       else:
         raise newException(MalformedFrame, "missing Content-Length header")
 
