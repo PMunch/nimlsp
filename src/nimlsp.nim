@@ -530,11 +530,6 @@ proc main(){.async.} =
                 text = textDoc["textDocument"]["text"].getStr
                 syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
               debugLog "New document opened for URI: ", fileuri, " saving to " & filestash
-              openFiles[fileuri] = (
-                #nimsuggest: initNimsuggest(uriToPath(fileuri)),
-                projectFile: projectFile,
-                fingerTable: @[]
-              )
 
               if not projectFiles.hasKey(projectFile):
                 debugLog "Initialising project with ", projectFile, ":", nimpath
