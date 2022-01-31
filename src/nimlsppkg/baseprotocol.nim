@@ -1,6 +1,6 @@
 import strutils, parseutils, json
 import asyncfile, asyncdispatch
-
+import logger
 type
   BaseProtocolError* = object of Defect
 
@@ -14,8 +14,7 @@ proc skipWhitespace(x: string, pos: int): int =
 
 proc sendFrame*(s: AsyncFile, frame: string) {.async} =
   when defined(debugCommunication):
-    stderr.write(frame)
-    stderr.write("\n")
+    infoLog(frame)
   await s.write "Content-Length: " & $frame.len & "\r\n\r\n" & frame
 
 proc sendJson*(s: AsyncFile, data: JsonNode) {.async.} =
@@ -59,7 +58,7 @@ proc readFrame*(s: AsyncFile): Future[string] {.async.} =
           let r = await s.readBuffer(buf[i].addr, contentLen - i)
           i += r
         when defined(debugCommunication):
-          stderr.writeLine(buf)
+          infoLog(buf)
         return buf
       else:
         raise newException(MalformedFrame, "missing Content-Length header")
