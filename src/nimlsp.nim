@@ -1,4 +1,4 @@
-import nimlsppkg / [baseprotocol, utfmapping, suggestlib]
+import nimlsppkg / [baseprotocol, utfmapping, suggestlib, pnode_parse]
 include nimlsppkg / messages
 import algorithm
 import streams
@@ -29,7 +29,7 @@ const
 type
   UriParseError* = object of Defect
     uri: string
-
+  FileTuple = tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]], syntaxOk: bool, error: ref Exception]
 var nimpath = explicitSourcePath
 
 discard existsOrCreateDir(storage)
@@ -56,7 +56,7 @@ var
   gotShutdown = false
   initialized = false
   projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: OrderedSet[string]]]()
-  openFiles = initTable[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
+  openFiles = initTable[string, FileTuple]()
 
 template whenValid(data, kind, body) =
   if data.isValid(kind, allowExtra = true):
@@ -148,6 +148,41 @@ proc error(request: RequestMessage, errorCode: int, message: string, data: JsonN
 proc notify(notification: string, data: JsonNode) {.async.} =
   await outs.sendJson create(NotificationMessage, "2.0", notification, some(data)).JsonNode
 
+proc sendParseError(request: RequestMessage, err: ref Exception) {.async.} = 
+  await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), none(ResponseError)).JsonNode
+
+proc docUri[T](p: T): string =
+  p["textDocument"]["uri"].getStr
+
+template pushError(p: untyped, error: ref Exception) =
+  var response: seq[Diagnostic]
+  let stack = error.getStackTraceEntries
+  debugEcho "push Error stack:" & repr stack
+  if stack.len > 0:
+    let diagnostic = stack[0]
+    response.add create(Diagnostic,
+      create(Range,
+        create(Position, diagnostic.line-1,0),
+        create(Position, diagnostic.line-1, 0)
+      ),
+      some(DiagnosticSeverity.Error.int),
+      none(int),
+      some("compiler parser"),
+      error.msg,
+      none(seq[DiagnosticRelatedInformation])
+    )
+    await notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
+      p.docUri,
+      response).JsonNode
+    )
+
+template syntaxCheck(request: RequestMessage, p: untyped) =
+  if openFiles.hasKey(p.docUri):
+    if openFiles[p.docUri].syntaxOk == false:
+      pushError(p,openFiles[p.docUri].error)
+      await request.sendParseError(openFiles[p.docUri].error)
+      continue
+  
 type Certainty = enum
   None,
   Folder,
@@ -266,6 +301,7 @@ proc main(){.async.} =
             )).JsonNode)
           of "textDocument/completion":
             message.textDocumentRequest(CompletionParams, compRequest):
+              message.syntaxCheck(compRequest)
               debugEcho "Running equivalent of: sug ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
@@ -314,6 +350,7 @@ proc main(){.async.} =
               await message.respond completionItems
           of "textDocument/hover":
             message.textDocumentRequest(TextDocumentPositionParams, hoverRequest):
+              message.syntaxCheck(hoverRequest)
               debugEcho "Running equivalent of: def ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
@@ -405,6 +442,7 @@ proc main(){.async.} =
                 ).JsonNode
           of "textDocument/definition":
             message.textDocumentRequest(TextDocumentPositionParams, definitionRequest):
+              message.syntaxCheck(definitionRequest)
               debugEcho "Running equivalent of: def ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
@@ -430,6 +468,7 @@ proc main(){.async.} =
                 await message.respond response
           of "textDocument/documentSymbol":
             message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
+              message.syntaxCheck(symbolRequest)
               debugEcho "Running equivalent of: outline ", uriToPath(fileuri), ";", filestash
               let syms = getNimsuggest(fileuri).outline(uriToPath(fileuri), dirtyfile = filestash)
               debugEcho "Found outlines: ",
@@ -500,18 +539,21 @@ proc main(){.async.} =
               let
                 file = open(filestash, fmWrite)
                 projectFile = getProjectFile(uriToPath(fileuri))
+                text = textDoc["textDocument"]["text"].getStr
+                syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
               debugEcho "New document opened for URI: ", fileuri, " saving to " & filestash
-              openFiles[fileuri] = (
-                #nimsuggest: initNimsuggest(uriToPath(fileuri)),
-                projectFile: projectFile,
-                fingerTable: @[]
-              )
-
               if not projectFiles.hasKey(projectFile):
                 debugEcho "Initialising project with ", projectFile, ":", nimpath
                 projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: initOrderedSet[string]())
-              projectFiles[projectFile].openFiles.incl(fileuri)
-
+              else:
+                projectFiles[projectFile].openFiles.incl(fileuri)
+              var t: FileTuple = (
+                projectFile: projectFile,
+                fingerTable: @[],
+                syntaxOk: syntax.ok,
+                error: default(ref Exception)
+              )
+              openFiles[textDoc.docUri] = t
               for line in textDoc["textDocument"]["text"].getStr.splitLines:
                 openFiles[fileuri].fingerTable.add line.createUTFMapping()
                 file.writeLine line
@@ -521,7 +563,12 @@ proc main(){.async.} =
               let file = open(filestash, fmWrite)
               debugEcho "Got document change for URI: ", fileuri, " saving to " & filestash
               openFiles[fileuri].fingerTable = @[]
-              for line in textDoc["contentChanges"][0]["text"].getStr.splitLines:
+              let text = textDoc["contentChanges"][0]["text"].getStr
+              let syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
+              openFiles[textDoc.docUri].syntaxOk = syntax.ok
+              if syntax.ok == false:
+                openFiles[textDoc.docUri].error = syntax.error
+              for line in text.splitLines:
                 openFiles[fileuri].fingerTable.add line.createUTFMapping()
                 file.writeLine line
               file.close()
@@ -542,12 +589,20 @@ proc main(){.async.} =
             message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
               if textDoc["text"].isSome:
                 let file = open(filestash, fmWrite)
+                let text = textDoc["text"].unsafeGet.getStr
+                let syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
+                openFiles[textDoc.docUri].syntaxOk = syntax.ok
+                if syntax.ok == false:
+                  openFiles[textDoc.docUri].error = syntax.error
                 debugEcho "Got document save for URI: ", fileuri, " saving to ", filestash
                 openFiles[fileuri].fingerTable = @[]
                 for line in textDoc["text"].unsafeGet.getStr.splitLines:
                   openFiles[fileuri].fingerTable.add line.createUTFMapping()
                   file.writeLine line
                 file.close()
+                if not syntax.ok:
+                  pushError(textDoc,syntax.error)
+                  continue
               debugEcho "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
 
               let diagnostics = getNimsuggest(fileuri).chk(uriToPath(fileuri), dirtyfile = filestash)
