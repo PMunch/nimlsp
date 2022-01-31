@@ -1,4 +1,4 @@
-import nimlsppkg / [baseprotocol, utfmapping, suggestlib, pnode_parse]
+import nimlsppkg / [baseprotocol, utfmapping, suggestlib, logger, pnode_parse]
 include nimlsppkg / messages
 import algorithm
 import streams
@@ -12,7 +12,6 @@ import osproc
 import asyncfile, asyncdispatch
 
 const
-  storage = getTempDir() / "nimlsp"
   version = block:
     var version = "0.0.0"
     let nimbleFile = staticRead(currentSourcePath().parentDir().parentDir() / "nimlsp.nimble")
@@ -31,24 +30,11 @@ type
     uri: string
   FileTuple = tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]], syntaxOk: bool, error: ref Exception]
 var nimpath = explicitSourcePath
-
 discard existsOrCreateDir(storage)
-
-when defined(debugLogging):
-  var logFile = open(storage / "nimlsp.log", fmWrite)
-
-template debugEcho(args: varargs[string, `$`]) =
-  when defined(debugLogging):
-    stderr.write(join args)
-    stderr.write("\n")
-    logFile.write(join args)
-    logFile.write("\n\n")
-    logFile.flushFile()
-
-debugEcho("Version: ", version)
-debugEcho("explicitSourcePath: ", explicitSourcePath)
+infoLog("Version: ", version)
+infoLog("explicitSourcePath: ", explicitSourcePath)
 for i in 1..paramCount():
-  debugEcho("Argument " & $i & ": " & paramStr(i))
+  infoLog("Argument " & $i & ": " & paramStr(i))
 
 var
   ins = newAsyncFile(stdin.getOsFileHandle().AsyncFD)
@@ -63,14 +49,14 @@ template whenValid(data, kind, body) =
     var data = kind(data)
     body
   else:
-    debugEcho("Unable to parse data as " & $kind)
+    debugLog("Unable to parse data as " & $kind)
 
 template whenValidStrict(data, kind, body) =
   if data.isValid(kind):
     var data = kind(data)
     body
   else:
-    debugEcho("Unable to parse data as " & $kind)
+    debugLog("Unable to parse data as " & $kind)
 
 proc getFileStash(fileuri: string): string =
   return storage / (hash(fileuri).toHex & ".nim" )
@@ -82,7 +68,7 @@ template textDocumentRequest(message, kind, name, body) {.dirty.} =
       let
         fileuri = name["textDocument"]["uri"].getStr
         filestash = storage / (hash(fileuri).toHex & ".nim" )
-      debugEcho "Got request for URI: ", fileuri, " copied to " & filestash
+      debugLog "Got request for URI: ", fileuri, " copied to " & filestash
       when kind isnot DocumentSymbolParams:
         let
           rawLine = name["position"]["line"].getInt
@@ -247,22 +233,23 @@ if not fileExists(nimpath / "config/nim.cfg"):
 proc main(){.async.} =
   while true:
     try:
-      debugEcho "Trying to read frame"
+      debugLog "Trying to read frame"
       let frame = await ins.readFrame
-      debugEcho "Got frame:\n" & frame
+      debugLog "Got frame:" 
+      infoLog frame
       let message = frame.parseJson
       whenValidStrict(message, RequestMessage):
-        debugEcho "Got valid Request message of type " & message["method"].getStr
+        debugLog "Got valid Request message of type " & message["method"].getStr
         if not initialized and message["method"].getStr != "initialize":
           await message.error(-32002, "Unable to accept requests before being initialized", newJNull())
           continue
         case message["method"].getStr:
           of "shutdown":
-            debugEcho "Got shutdown request, answering"
+            debugLog "Got shutdown request, answering"
             await message.respond(newJNull())
             gotShutdown = true
           of "initialize":
-            debugEcho "Got initialize request, answering"
+            debugLog "Got initialize request, answering"
             initialized = true
             await message.respond(create(InitializeResult, create(ServerCapabilities,
               textDocumentSync = some(create(TextDocumentSyncOptions,
@@ -302,14 +289,14 @@ proc main(){.async.} =
           of "textDocument/completion":
             message.textDocumentRequest(CompletionParams, compRequest):
               message.syntaxCheck(compRequest)
-              debugEcho "Running equivalent of: sug ", uriToPath(fileuri), ";", filestash, ":",
+              debugLog "Running equivalent of: sug ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               let suggestions = getNimsuggest(fileuri).sug(uriToPath(fileuri), dirtyfile = filestash,
                 rawLine + 1,
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
-              debugEcho "Found suggestions: ",
+              debugLog "Found suggestions: ",
                 suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
                 (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
               var
@@ -351,14 +338,14 @@ proc main(){.async.} =
           of "textDocument/hover":
             message.textDocumentRequest(TextDocumentPositionParams, hoverRequest):
               message.syntaxCheck(hoverRequest)
-              debugEcho "Running equivalent of: def ", uriToPath(fileuri), ";", filestash, ":",
+              debugLog "Running equivalent of: def ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               let suggestions = getNimsuggest(fileuri).def(uriToPath(fileuri), dirtyfile = filestash,
                 rawLine + 1,
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
-              debugEcho "Found suggestions: ",
+              debugLog "Found suggestions: ",
                 suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
                 (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
               if suggestions.len == 0:
@@ -386,14 +373,14 @@ proc main(){.async.} =
                   await message.respond create(Hover, markedString, rangeopt).JsonNode
           of "textDocument/references":
             message.textDocumentRequest(ReferenceParams, referenceRequest):
-              debugEcho "Running equivalent of: use ", uriToPath(fileuri), ";", filestash, ":",
+              debugLog "Running equivalent of: use ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               let suggestions = getNimsuggest(fileuri).use(uriToPath(fileuri), dirtyfile = filestash,
                 rawLine + 1,
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
-              debugEcho "Found suggestions: ",
+              debugLog "Found suggestions: ",
                 suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
                 (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
               var response = newJarray()
@@ -412,14 +399,14 @@ proc main(){.async.} =
                 await message.respond response
           of "textDocument/rename":
             message.textDocumentRequest(RenameParams, renameRequest):
-              debugEcho "Running equivalent of: use ", uriToPath(fileuri), ";", filestash, ":",
+              debugLog "Running equivalent of: use ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               let suggestions = getNimsuggest(fileuri).use(uriToPath(fileuri), dirtyfile = filestash,
                 rawLine + 1,
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
-              debugEcho "Found suggestions: ",
+              debugLog "Found suggestions: ",
                 suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
                 (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
               if suggestions.len == 0:
@@ -443,14 +430,14 @@ proc main(){.async.} =
           of "textDocument/definition":
             message.textDocumentRequest(TextDocumentPositionParams, definitionRequest):
               message.syntaxCheck(definitionRequest)
-              debugEcho "Running equivalent of: def ", uriToPath(fileuri), ";", filestash, ":",
+              debugLog "Running equivalent of: def ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               let declarations = getNimsuggest(fileuri).def(uriToPath(fileuri), dirtyfile = filestash,
                 rawLine + 1,
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
-              debugEcho "Found suggestions: ",
+              debugLog "Found suggestions: ",
                 declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
                 (if declarations.len > 10: " and " & $(declarations.len-10) & " more" else: "")
               if declarations.len == 0:
@@ -469,9 +456,9 @@ proc main(){.async.} =
           of "textDocument/documentSymbol":
             message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
               message.syntaxCheck(symbolRequest)
-              debugEcho "Running equivalent of: outline ", uriToPath(fileuri), ";", filestash
+              debugLog "Running equivalent of: outline ", uriToPath(fileuri), ";", filestash
               let syms = getNimsuggest(fileuri).outline(uriToPath(fileuri), dirtyfile = filestash)
-              debugEcho "Found outlines: ",
+              debugLog "Found outlines: ",
                 syms[0..(if syms.len > 10: 10 else: syms.high)],
                 (if syms.len > 10: " and " & $(syms.len-10) & " more" else: "")
               if syms.len == 0:
@@ -498,7 +485,7 @@ proc main(){.async.} =
                 await message.respond response
           of "textDocument/signatureHelp":
             message.textDocumentRequest(TextDocumentPositionParams, sigHelpRequest):
-              debugEcho "Running equivalent of: con ", uriToPath(fileuri), ";", filestash, ":",
+              debugLog "Running equivalent of: con ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               let suggestions = getNimsuggest(fileuri).con(uriToPath(fileuri), dirtyfile = filestash, rawLine + 1, rawChar)
@@ -519,21 +506,22 @@ proc main(){.async.} =
                 activeParameter = some(0)
               ).JsonNode
           else:
-            debugEcho "Unknown request"
+            debugLog "Unknown request"
+            await message.error(errorCode = -32600, message = "Unknown request: " & frame, data = newJObject())
         continue
       whenValidStrict(message, NotificationMessage):
-        debugEcho "Got valid Notification message of type " & message["method"].getStr
+        debugLog "Got valid Notification message of type " & message["method"].getStr
         if not initialized and message["method"].getStr != "exit":
           continue
         case message["method"].getStr:
           of "exit":
-            debugEcho "Exiting"
+            debugLog "Exiting"
             if gotShutdown:
               quit 0
             else:
               quit 1
           of "initialized":
-            debugEcho "Properly initialized"
+            debugLog "Properly initialized"
           of "textDocument/didOpen":
             message.textDocumentNotification(DidOpenTextDocumentParams, textDoc):
               let
@@ -541,9 +529,15 @@ proc main(){.async.} =
                 projectFile = getProjectFile(uriToPath(fileuri))
                 text = textDoc["textDocument"]["text"].getStr
                 syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
-              debugEcho "New document opened for URI: ", fileuri, " saving to " & filestash
+              debugLog "New document opened for URI: ", fileuri, " saving to " & filestash
+              openFiles[fileuri] = (
+                #nimsuggest: initNimsuggest(uriToPath(fileuri)),
+                projectFile: projectFile,
+                fingerTable: @[]
+              )
+
               if not projectFiles.hasKey(projectFile):
-                debugEcho "Initialising project with ", projectFile, ":", nimpath
+                debugLog "Initialising project with ", projectFile, ":", nimpath
                 projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: initOrderedSet[string]())
               else:
                 projectFiles[projectFile].openFiles.incl(fileuri)
@@ -561,7 +555,7 @@ proc main(){.async.} =
           of "textDocument/didChange":
             message.textDocumentNotification(DidChangeTextDocumentParams, textDoc):
               let file = open(filestash, fmWrite)
-              debugEcho "Got document change for URI: ", fileuri, " saving to " & filestash
+              debugLog "Got document change for URI: ", fileuri, " saving to " & filestash
               openFiles[fileuri].fingerTable = @[]
               let text = textDoc["contentChanges"][0]["text"].getStr
               let syntax = parsePNodeStr(text,textDoc.docUri.uriToPath)
@@ -578,12 +572,12 @@ proc main(){.async.} =
           of "textDocument/didClose":
             message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
               let projectFile = getProjectFile(uriToPath(fileuri))
-              debugEcho "Got document close for URI: ", fileuri, " copied to " & filestash
+              debugLog "Got document close for URI: ", fileuri, " copied to " & filestash
               removeFile(filestash)
               projectFiles[projectFile].openFiles.excl(fileuri)
               if projectFiles[projectFile].openFiles.len == 0:
-                debugEcho "Trying to stop nimsuggest"
-                debugEcho "Stopped nimsuggest with code: " & $getNimsuggest(fileuri).stopNimsuggest()
+                debugLog "Trying to stop nimsuggest"
+                debugLog "Stopped nimsuggest with code: " & $getNimsuggest(fileuri).stopNimsuggest()
               openFiles.del(fileuri)
           of "textDocument/didSave":
             message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
@@ -594,7 +588,7 @@ proc main(){.async.} =
                 openFiles[textDoc.docUri].syntaxOk = syntax.ok
                 if syntax.ok == false:
                   openFiles[textDoc.docUri].error = syntax.error
-                debugEcho "Got document save for URI: ", fileuri, " saving to ", filestash
+                debugLog "Got document save for URI: ", fileuri, " saving to ", filestash
                 openFiles[fileuri].fingerTable = @[]
                 for line in textDoc["text"].unsafeGet.getStr.splitLines:
                   openFiles[fileuri].fingerTable.add line.createUTFMapping()
@@ -603,10 +597,10 @@ proc main(){.async.} =
                 if not syntax.ok:
                   pushError(textDoc,syntax.error)
                   continue
-              debugEcho "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
+              debugLog "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
 
               let diagnostics = getNimsuggest(fileuri).chk(uriToPath(fileuri), dirtyfile = filestash)
-              debugEcho "Got diagnostics: ",
+              debugLog "Got diagnostics: ",
                 diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
                 (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
               var response: seq[Diagnostic]
@@ -640,7 +634,7 @@ proc main(){.async.} =
               let projectFile = openFiles[fileuri].projectFile
               for f in projectFiles[projectFile].openFiles.items:
                 let diagnostics = getNimsuggest(f).chk(uriToPath(f), dirtyfile = getFileStash(f))
-                debugEcho "Got diagnostics: ",
+                debugLog "Got diagnostics: ",
                   diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
                   (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
 
@@ -682,16 +676,16 @@ proc main(){.async.} =
                 response).JsonNode
               )
           else:
-            debugEcho "Got unknown notification message"
+            warnLog "Got unknown notification message"
         continue
     except UriParseError as e:
-      debugEcho "Got exception parsing URI: ", e.msg
+      warnLog "Got exception parsing URI: ", e.msg
       continue
     except IOError as e:
-      debugEcho "Got IOError: ", e.msg
+      errorLog "Got IOError: ", e.msg
       break
     except CatchableError as e:
-      debugEcho "Got exception: ", e.msg
+      warnLog "Got exception: ", e.msg
       continue
 
 waitFor main()
