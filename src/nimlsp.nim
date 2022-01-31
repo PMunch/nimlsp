@@ -482,7 +482,7 @@ proc main(){.async.} =
           else:
             debugEcho "Unknown request"
             await message.error(errorCode = -32600, message = "Unknown request:" & frame, data = newJObject())        
-            continue
+        continue
       whenValidStrict(message, NotificationMessage):
         debugEcho "Got valid Notification message of type " & message["method"].getStr
         if not initialized and message["method"].getStr != "exit":
