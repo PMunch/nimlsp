@@ -12,7 +12,6 @@ import osproc
 import asyncfile, asyncdispatch
 
 const
-  storage = getTempDir() / "nimlsp"
   version = block:
     var version = "0.0.0"
     let nimbleFile = staticRead(currentSourcePath().parentDir().parentDir() / "nimlsp.nimble")
@@ -31,7 +30,7 @@ type
     uri: string
 
 var nimpath = explicitSourcePath
-
+discard existsOrCreateDir(storage)
 infoLog("Version: ", version)
 infoLog("explicitSourcePath: ", explicitSourcePath)
 for i in 1..paramCount():

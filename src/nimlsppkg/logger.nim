@@ -1,6 +1,8 @@
-import os,logging
+import os, logging
 
-let rollingLog = newRollingFileLogger( getAppDir() / "nimlsp.log")
+const storage* = getTempDir() / "nimlsp"
+
+let rollingLog = newRollingFileLogger(storage / "nimlsp.log")
 addHandler(rollingLog)
 
 template debugLog*(args: varargs[string, `$`]) =

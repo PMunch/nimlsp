@@ -1,6 +1,6 @@
 import strutils, parseutils, json
 import asyncfile, asyncdispatch
-import ./logger
+import logger
 type
   BaseProtocolError* = object of Defect
 
