@@ -1,7 +1,7 @@
 import os, logging
 
 const storage* = getTempDir() / "nimlsp"
-
+discard existsOrCreateDir(storage)
 let rollingLog = newRollingFileLogger(storage / "nimlsp.log")
 addHandler(rollingLog)
 
