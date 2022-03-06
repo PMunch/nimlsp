@@ -1,0 +1,54 @@
+name: Build
+
+on:
+  push:
+    paths-ignore: 
+      - '*.md'
+      - '*.rst'
+  pull_request:
+    paths-ignore: 
+      - '*.md'
+      - '*.rst'
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macOS-latest
+        nim-version:
+          - 1.4.0
+          - 1.6.0
+          - devel
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Cache choosenim
+      id: cache-choosenim
+      uses: actions/cache@v1
+      with:
+        path: ~/.choosenim
+        key: ${{ runner.os }}-choosenim-${{ matrix.nim-version}}
+
+    - name: Cache nimble
+      id: cache-nimble
+      uses: actions/cache@v1
+      with:
+        path: ~/.nimble
+        key: ${{ runner.os }}-nimble-${{ matrix.nim-version}}-${{ hashFiles('*.nimble') }}
+ 
+    - name: Setup nim
+      uses: jiro4989/setup-nim-action@v1.3.2
+      with:
+        nim-version: ${{ matrix.nim-version }}
+
+    - name: Install Packages
+      run: nimble install -d -y
+    - name: Test
+      run: nimble test
