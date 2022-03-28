@@ -10,6 +10,7 @@ import sets
 import uri
 import osproc
 import asyncfile, asyncdispatch
+import regex
 
 const
   version = block:
@@ -451,21 +452,32 @@ proc main(){.async.} =
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               let suggestions = getNimsuggest(fileuri).con(uriToPath(fileuri), dirtyfile = filestash, rawLine + 1, rawChar)
               var signatures = newSeq[SignatureInformation]()
-              for suggestion in suggestions:
-                var label = suggestion.qualifiedPath.join(".")
-                if suggestion.forth != "":
-                  label &= ": " & suggestion.forth
-                signatures.add create(SignatureInformation,
-                  label = label,
-                  documentation = some(suggestion.nimDocstring),
-                  parameters = none(seq[ParameterInformation])
-                )
-
-              await message.respond create(SignatureHelp,
-                signatures = signatures,
-                activeSignature = some(0),
-                activeParameter = some(0)
-              ).JsonNode
+              for sig in suggestions:
+                let label = sig.qualifiedPath[^1]
+                let documentation = sig.doc
+                var parameters = newSeq[ParameterInformation]()
+                if sig.forth.len > 0:
+                  var genericsCleanType = ""
+                  var insideGeneric = 0
+                  var i = 0
+                  let forthLen = sig.forth.len
+                  while i < forthLen:
+                    if sig.forth[i] == '[':
+                      inc insideGeneric
+                    if insideGeneric <= 0:
+                      genericsCleanType.add sig.forth[i]
+                    if sig.forth[i] == ']':
+                      dec insideGeneric
+                    inc i
+                  var m: RegexMatch
+                  var signatureCutDown = genericsCleanType.find(re"(proc|macro|template|iterator|func) \((.+: .+)*\)",m)
+                  if (signatureCutDown):
+                    debugLog "signatureCutDown:", $m.group(1,genericsCleanType)
+                    var params = m.group(1, genericsCleanType)[0].split(", ")
+                    for label in params:
+                      parameters.add create(ParameterInformation,label, none(string))
+                signatures.add create(SignatureInformation,label,some(documentation),some(parameters))
+              await message.respond create(SignatureHelp,signatures,none(int),none(int)).JsonNode # ,activeSignature,activeParameter
           else:
             debugLog "Unknown request"
             await message.error(errorCode = -32600, message = "Unknown request: " & frame, data = newJObject())
