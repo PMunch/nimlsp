@@ -90,10 +90,18 @@ proc pathToUri(path: string): string =
   # the / character, meaning a full file path can be passed in without breaking
   # it.
   result = newStringOfCap(path.len + path.len shr 2) # assume 12% non-alnum-chars
+  when defined(windows):
+    result.add '/'
   for c in path:
     case c
     # https://tools.ietf.org/html/rfc3986#section-2.3
     of 'a'..'z', 'A'..'Z', '0'..'9', '-', '.', '_', '~', '/': add(result, c)
+    of '\\':
+      when defined(windows):
+        result.add '/'
+      else:
+        result.add '%'
+        result.add toHex(ord(c), 2)
     else:
       add(result, '%')
       add(result, toHex(ord(c), 2))
