@@ -37,8 +37,6 @@ for i in 1..paramCount():
   infoLog("Argument " & $i & ": " & paramStr(i))
 
 var
-  ins = newAsyncFile(stdin.getOsFileHandle().AsyncFD)
-  outs = newAsyncFile(stdout.getOsFileHandle().AsyncFD)
   gotShutdown = false
   initialized = false
   projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: OrderedSet[string]]]()
@@ -133,14 +131,23 @@ proc parseId(node: JsonNode): int =
   else:
     raise newException(MalformedFrame, "Invalid id node: " & repr(node))
 
-proc respond(request: RequestMessage, data: JsonNode) {.async.} =
-  await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), some(data), none(ResponseError)).JsonNode
+template multisyncTask(outs: Stream | AsyncFile, body) =
+  when outs is Stream:
+    body
+  else:
+    await body
 
-proc error(request: RequestMessage, errorCode: int, message: string, data: JsonNode) {.async.} =
-  await outs.sendJson create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
+proc respond(outs: Stream | AsyncFile, request: RequestMessage, data: JsonNode) {.multisync.} =
+  let resp = create(ResponseMessage, "2.0", parseId(request["id"]), some(data), none(ResponseError)).JsonNode
+  multisyncTask outs: outs.sendJson resp
 
-proc notify(notification: string, data: JsonNode) {.async.} =
-  await outs.sendJson create(NotificationMessage, "2.0", notification, some(data)).JsonNode
+proc error(outs: Stream | AsyncFile,request: RequestMessage, errorCode: int, message: string, data: JsonNode) {.multisync.} =
+  let resp = create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
+  multisyncTask outs: outs.sendJson resp
+
+proc notify(outs: Stream | AsyncFile,notification: string, data: JsonNode) {.multisync.} =
+  let resp = create(NotificationMessage, "2.0", notification, some(data)).JsonNode
+  multisyncTask outs: outs.sendJson resp
 
 type Certainty = enum
   None,
@@ -203,28 +210,31 @@ if not fileExists(nimpath / "config/nim.cfg"):
     "Supply the Nim project folder by adding it as an argument.\n"
   quit 1
 
-proc main(){.async.} =
+proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
   while true:
     try:
       debugLog "Trying to read frame"
-      let frame = await ins.readFrame
+      let frame = when ins is Stream: ins.readFrame else: await ins.readFrame
       debugLog "Got frame:" 
       infoLog frame
       let message = frame.parseJson
       whenValidStrict(message, RequestMessage):
         debugLog "Got valid Request message of type " & message["method"].getStr
         if not initialized and message["method"].getStr != "initialize":
-          await message.error(-32002, "Unable to accept requests before being initialized", newJNull())
+          multisyncTask outs:
+            outs.error(message, -32002, "Unable to accept requests before being initialized", newJNull())
           continue
         case message["method"].getStr:
           of "shutdown":
             debugLog "Got shutdown request, answering"
-            await message.respond(newJNull())
+            let resp = newJNull()
+            multisyncTask outs:
+              outs.respond(message, resp)
             gotShutdown = true
           of "initialize":
             debugLog "Got initialize request, answering"
             initialized = true
-            await message.respond(create(InitializeResult, create(ServerCapabilities,
+            let resp = create(InitializeResult, create(ServerCapabilities,
               textDocumentSync = some(create(TextDocumentSyncOptions,
                 openClose = some(true),
                 change = some(TextDocumentSyncKind.Full.int),
@@ -258,7 +268,9 @@ proc main(){.async.} =
               executeCommandProvider = none(ExecuteCommandOptions), #?: ExecuteCommandOptions
               workspace = none(WorkspaceCapability), #?: WorkspaceCapability
               experimental = none(JsonNode) #?: any
-            )).JsonNode)
+            )).JsonNode
+            multisyncTask outs:
+              outs.respond(message,resp)
           of "textDocument/completion":
             message.textDocumentRequest(CompletionParams, compRequest):
               debugLog "Running equivalent of: sug ", uriToPath(fileuri), ";", filestash, ":",
@@ -306,7 +318,8 @@ proc main(){.async.} =
                     command = none(Command),
                     data = none(JsonNode)
                   ).JsonNode
-              await message.respond completionItems
+              multisyncTask outs:
+                outs.respond(message, completionItems)
           of "textDocument/hover":
             message.textDocumentRequest(TextDocumentPositionParams, hoverRequest):
               debugLog "Running equivalent of: def ", uriToPath(fileuri), ";", filestash, ":",
@@ -319,8 +332,9 @@ proc main(){.async.} =
               debugLog "Found suggestions: ",
                 suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
                 (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+              var resp: JsonNode
               if suggestions.len == 0:
-                await message.respond newJNull()
+                resp = newJNull()
               else:
                 var label = suggestions[0].qualifiedPath.join(".")
                 if suggestions[0].forth != "":
@@ -333,7 +347,7 @@ proc main(){.async.} =
                     ))
                   markedString = create(MarkedStringOption, "nim", label)
                 if suggestions[0].doc != "":
-                  await message.respond create(Hover,
+                  resp = create(Hover,
                     @[
                       markedString,
                       create(MarkedStringOption, "", suggestions[0].nimDocstring),
@@ -341,7 +355,9 @@ proc main(){.async.} =
                     rangeopt
                   ).JsonNode
                 else:
-                  await message.respond create(Hover, markedString, rangeopt).JsonNode
+                  resp = create(Hover, markedString, rangeopt).JsonNode;
+                multisyncTask outs:
+                  outs.respond(message, resp)
           of "textDocument/references":
             message.textDocumentRequest(ReferenceParams, referenceRequest):
               debugLog "Running equivalent of: use ", uriToPath(fileuri), ";", filestash, ":",
@@ -365,9 +381,12 @@ proc main(){.async.} =
                     )
                   ).JsonNode
               if response.len == 0:
-                await message.respond newJNull()
+                multisyncTask outs:
+                  outs.respond(message, newJNull())
               else:
-                await message.respond response
+                multisyncTask outs:
+                  outs.respond(message, response)
+             
           of "textDocument/rename":
             message.textDocumentRequest(RenameParams, renameRequest):
               debugLog "Running equivalent of: use ", uriToPath(fileuri), ";", filestash, ":",
@@ -380,8 +399,9 @@ proc main(){.async.} =
               debugLog "Found suggestions: ",
                 suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
                 (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+              var resp: JsonNode
               if suggestions.len == 0:
-                await message.respond newJNull()
+                resp = newJNull()
               else:
                 var textEdits = newJObject()
                 for suggestion in suggestions:
@@ -394,10 +414,11 @@ proc main(){.async.} =
                     ),
                     renameRequest["newName"].getStr
                   ).JsonNode
-                await message.respond create(WorkspaceEdit,
+                resp = create(WorkspaceEdit,
                   some(textEdits),
                   none(seq[TextDocumentEdit])
                 ).JsonNode
+                multisyncTask outs: outs.respond(message, resp)
           of "textDocument/definition":
             message.textDocumentRequest(TextDocumentPositionParams, definitionRequest):
               debugLog "Running equivalent of: def ", uriToPath(fileuri), ";", filestash, ":",
@@ -410,19 +431,21 @@ proc main(){.async.} =
               debugLog "Found suggestions: ",
                 declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
                 (if declarations.len > 10: " and " & $(declarations.len-10) & " more" else: "")
+              var resp: JsonNode
               if declarations.len == 0:
-                await message.respond newJNull()
+                resp = newJNull()
               else:
-                var response = newJarray()
+                resp = newJarray()
                 for declaration in declarations:
-                  response.add create(Location,
+                  resp.add create(Location,
                     "file://" & pathToUri(declaration.filepath),
                     create(Range,
                       create(Position, declaration.line-1, declaration.column),
                       create(Position, declaration.line-1, declaration.column + declaration.qualifiedPath[^1].len)
                     )
                   ).JsonNode
-                await message.respond response
+                multisyncTask outs:
+                  outs.respond(message, resp)
           of "textDocument/documentSymbol":
             message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
               debugLog "Running equivalent of: outline ", uriToPath(fileuri), ";", filestash
@@ -430,14 +453,15 @@ proc main(){.async.} =
               debugLog "Found outlines: ",
                 syms[0..(if syms.len > 10: 10 else: syms.high)],
                 (if syms.len > 10: " and " & $(syms.len-10) & " more" else: "")
+              var resp: JsonNode
               if syms.len == 0:
-                await message.respond newJNull()
+                resp = newJNull()
               else:
-                var response = newJarray()
+                resp = newJarray()
                 for sym in syms.sortedByIt((it.line,it.column,it.quality)):
                   if sym.qualifiedPath.len != 2:
                     continue
-                  response.add create(
+                  resp.add create(
                     SymbolInformation,
                     sym.name[],
                     nimSymToLSPKind(sym.symKind).int,
@@ -451,7 +475,8 @@ proc main(){.async.} =
                     ),
                     none(string)
                   ).JsonNode
-                await message.respond response
+              multisyncTask outs:
+                outs.respond(message, resp)
           of "textDocument/signatureHelp":
             message.textDocumentRequest(TextDocumentPositionParams, sigHelpRequest):
               debugLog "Running equivalent of: con ", uriToPath(fileuri), ";", filestash, ":",
@@ -468,15 +493,17 @@ proc main(){.async.} =
                   documentation = some(suggestion.nimDocstring),
                   parameters = none(seq[ParameterInformation])
                 )
-
-              await message.respond create(SignatureHelp,
+              let resp = create(SignatureHelp,
                 signatures = signatures,
                 activeSignature = some(0),
                 activeParameter = some(0)
               ).JsonNode
+              multisyncTask outs:
+                outs.respond(message, resp)
           else:
             debugLog "Unknown request"
-            await message.error(errorCode = -32600, message = "Unknown request: " & frame, data = newJObject())
+            multisyncTask outs:
+              outs.error(message, errorCode = -32600, message = "Unknown request: " & frame, data = newJObject())
         continue
       whenValidStrict(message, NotificationMessage):
         debugLog "Got valid Notification message of type " & message["method"].getStr
@@ -613,15 +640,14 @@ proc main(){.async.} =
                     message,
                     none(seq[DiagnosticRelatedInformation])
                   )
-
-                await notify(
-                  "textDocument/publishDiagnostics",
-                  create(PublishDiagnosticsParams, f, response).JsonNode
-                )
-              await notify("textDocument/publishDiagnostics", create(PublishDiagnosticsParams,
+                let resp = create(PublishDiagnosticsParams, f, response).JsonNode
+                multisyncTask outs:
+                  outs.notify("textDocument/publishDiagnostics", resp)
+              let resp = create(PublishDiagnosticsParams,
                 fileuri,
                 response).JsonNode
-              )
+              multisyncTask outs:
+                outs.notify("textDocument/publishDiagnostics", resp)
           else:
             warnLog "Got unknown notification message"
         continue
@@ -635,4 +661,13 @@ proc main(){.async.} =
       warnLog "Got exception: ", e.msg
       continue
 
-waitFor main()
+when defined(windows):
+  var
+    ins = newFileStream(stdin)
+    outs = newFileStream(stdout)
+  main(ins, outs)
+else:
+  var
+    ins = newAsyncFile(stdin.getOsFileHandle().AsyncFD)
+    outs = newAsyncFile(stdout.getOsFileHandle().AsyncFD)
+  waitFor main(ins, outs)

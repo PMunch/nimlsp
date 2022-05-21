@@ -1,13 +1,13 @@
 import unittest
-import std/[asyncdispatch, asyncfile, os, osproc, options, json]
+import std/[asyncdispatch, asyncfile, os, options, json, strutils]
 import .. / src / nimlsppkg / baseprotocol
 include .. / src / nimlsppkg / messages
+import streams
+import asynctools
 
 let
   nimlsp = parentDir(parentDir(currentSourcePath())) / "nimlsp"
   p = startProcess(nimlsp, options = {})
-  i = newAsyncFile(p.inputHandle().AsyncFD)
-  o = newAsyncFile(p.outputHandle().AsyncFD)
 
 suite "Nim LSP basic operation":
   test "Nim LSP can be initialised":
@@ -26,10 +26,12 @@ suite "Nim LSP basic operation":
         workspaceFolders = none(seq[WorkspaceFolder])
       ).JsonNode)
     ).JsonNode
-    waitFor i.sendJson ir
+    var frame = newString(1024)
+    var d = formFrame(ir)
+    discard waitFor p.inputHandle().write(cast[pointer](d[0].addr), d.len)
+    let n = waitFor p.outputHandle().readInto(frame[0].addr, 1024)
 
-    var frame = o.readFrame
-    var message = parseJson waitFor frame
+    var message = parseJson frame.split("\r\n\r\n")[1]
     if message.isValid(ResponseMessage):
       var data = ResponseMessage(message)
       check data["id"].getInt == 0
