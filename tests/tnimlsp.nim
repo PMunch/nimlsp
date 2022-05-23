@@ -1,9 +1,7 @@
-import unittest
-import std/[asyncdispatch, asyncfile, os, options, json, strutils]
+import std/[unittest, asyncdispatch, asyncfile, os, options, json, strutils, streams]
 import .. / src / nimlsppkg / baseprotocol
 include .. / src / nimlsppkg / messages
-import streams
-import asynctools
+import pkg/asynctools
 
 let
   nimlsp = parentDir(parentDir(currentSourcePath())) / "nimlsp"

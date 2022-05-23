@@ -1,7 +1,5 @@
-import strutils, parseutils, json
-import asyncfile, asyncdispatch
+import std / [strutils, parseutils, json, asyncfile, asyncdispatch, streams]
 import logger
-import std/streams
 
 type
   BaseProtocolError* = object of Defect

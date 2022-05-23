@@ -1,4 +1,4 @@
-import unicode
+import std / [unicode]
 
 type FingerTable = seq[tuple[u16pos, offset: int]]
 

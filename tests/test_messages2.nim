@@ -1,4 +1,4 @@
-import unittest
+import std / [unittest]
 include nimlsppkg / messages
 #import packedjson
 
