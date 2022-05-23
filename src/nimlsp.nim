@@ -122,23 +122,25 @@ proc parseId(node: JsonNode): int =
   else:
     raise newException(MalformedFrame, "Invalid id node: " & repr(node))
 
-template multisyncTask(outs: Stream | AsyncFile, body) =
-  when outs is Stream:
-    body
-  else:
-    await body
+macro multisyncTask(body): untyped =
+  let arg = body[0][1]
+  result = quote do:
+    when `arg` is Stream:
+      `body`
+    else:
+      await `body`
 
 proc respond(outs: Stream | AsyncFile, request: RequestMessage, data: JsonNode) {.multisync.} =
   let resp = create(ResponseMessage, "2.0", parseId(request["id"]), some(data), none(ResponseError)).JsonNode
-  multisyncTask outs: outs.sendJson resp
+  multisyncTask: outs.sendJson resp
 
 proc error(outs: Stream | AsyncFile,request: RequestMessage, errorCode: int, message: string, data: JsonNode) {.multisync.} =
   let resp = create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
-  multisyncTask outs: outs.sendJson resp
+  multisyncTask: outs.sendJson resp
 
 proc notify(outs: Stream | AsyncFile,notification: string, data: JsonNode) {.multisync.} =
   let resp = create(NotificationMessage, "2.0", notification, some(data)).JsonNode
-  multisyncTask outs: outs.sendJson resp
+  multisyncTask: outs.sendJson resp
 
 type Certainty = enum
   None,
@@ -205,21 +207,21 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
   while true:
     try:
       debugLog "Trying to read frame"
-      let frame = when ins is Stream: ins.readFrame else: await ins.readFrame
+      let frame = multisyncTask: ins.readFrame
       debugLog "Got frame:" 
       infoLog frame
       let message = frame.parseJson
       whenValidStrict(message, RequestMessage):
         debugLog "Got valid Request message of type " & message["method"].getStr
         if not initialized and message["method"].getStr != "initialize":
-          multisyncTask outs:
+          multisyncTask:
             outs.error(message, -32002, "Unable to accept requests before being initialized", newJNull())
           continue
         case message["method"].getStr:
           of "shutdown":
             debugLog "Got shutdown request, answering"
             let resp = newJNull()
-            multisyncTask outs:
+            multisyncTask:
               outs.respond(message, resp)
             gotShutdown = true
           of "initialize":
@@ -260,7 +262,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               workspace = none(WorkspaceCapability), #?: WorkspaceCapability
               experimental = none(JsonNode) #?: any
             )).JsonNode
-            multisyncTask outs:
+            multisyncTask:
               outs.respond(message,resp)
           of "textDocument/completion":
             message.textDocumentRequest(CompletionParams, compRequest):
@@ -309,7 +311,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                     command = none(Command),
                     data = none(JsonNode)
                   ).JsonNode
-              multisyncTask outs:
+              multisyncTask:
                 outs.respond(message, completionItems)
           of "textDocument/hover":
             message.textDocumentRequest(TextDocumentPositionParams, hoverRequest):
@@ -347,7 +349,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                   ).JsonNode
                 else:
                   resp = create(Hover, markedString, rangeopt).JsonNode;
-                multisyncTask outs:
+                multisyncTask:
                   outs.respond(message, resp)
           of "textDocument/references":
             message.textDocumentRequest(ReferenceParams, referenceRequest):
@@ -372,10 +374,10 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                     )
                   ).JsonNode
               if response.len == 0:
-                multisyncTask outs:
+                multisyncTask:
                   outs.respond(message, newJNull())
               else:
-                multisyncTask outs:
+                multisyncTask:
                   outs.respond(message, response)
              
           of "textDocument/rename":
@@ -409,7 +411,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                   some(textEdits),
                   none(seq[TextDocumentEdit])
                 ).JsonNode
-                multisyncTask outs: outs.respond(message, resp)
+                multisyncTask: outs.respond(message, resp)
           of "textDocument/definition":
             message.textDocumentRequest(TextDocumentPositionParams, definitionRequest):
               debugLog "Running equivalent of: def ", uriToPath(fileuri), ";", filestash, ":",
@@ -435,7 +437,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                       create(Position, declaration.line-1, declaration.column + declaration.qualifiedPath[^1].len)
                     )
                   ).JsonNode
-                multisyncTask outs:
+                multisyncTask:
                   outs.respond(message, resp)
           of "textDocument/documentSymbol":
             message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
@@ -466,7 +468,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                     ),
                     none(string)
                   ).JsonNode
-              multisyncTask outs:
+              multisyncTask:
                 outs.respond(message, resp)
           of "textDocument/signatureHelp":
             message.textDocumentRequest(TextDocumentPositionParams, sigHelpRequest):
@@ -489,11 +491,11 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 activeSignature = some(0),
                 activeParameter = some(0)
               ).JsonNode
-              multisyncTask outs:
+              multisyncTask:
                 outs.respond(message, resp)
           else:
             debugLog "Unknown request"
-            multisyncTask outs:
+            multisyncTask:
               outs.error(message, errorCode = -32600, message = "Unknown request: " & frame, data = newJObject())
         continue
       whenValidStrict(message, NotificationMessage):
@@ -632,12 +634,12 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                     none(seq[DiagnosticRelatedInformation])
                   )
                 let resp = create(PublishDiagnosticsParams, f, response).JsonNode
-                multisyncTask outs:
+                multisyncTask:
                   outs.notify("textDocument/publishDiagnostics", resp)
               let resp = create(PublishDiagnosticsParams,
                 fileuri,
                 response).JsonNode
-              multisyncTask outs:
+              multisyncTask:
                 outs.notify("textDocument/publishDiagnostics", resp)
           else:
             warnLog "Got unknown notification message"
