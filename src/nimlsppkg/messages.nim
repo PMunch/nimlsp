@@ -1,9 +1,7 @@
+import std / [json, sequtils, options,]
 import messageenums
 # Anything below here comes from the LSP specification
-import jsonschema
-import json
-import options
-import sequtils
+import pkg / jsonschema
 
 
 jsonSchema:

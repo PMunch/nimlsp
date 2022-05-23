@@ -1,4 +1,4 @@
-import os, logging
+import std / [os, logging]
 
 const storage* = getTempDir() / "nimlsp"
 discard existsOrCreateDir(storage)

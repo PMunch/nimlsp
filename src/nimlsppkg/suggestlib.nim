@@ -1,4 +1,4 @@
-import macros, os
+import std / [macros, os]
 
 const explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
 
