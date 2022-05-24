@@ -1,3 +1,4 @@
 import std / [os]
 
-switch "path", getCurrentCompilerExe().parentDir.parentDir
+const explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
+switch "path", explicitSourcePath

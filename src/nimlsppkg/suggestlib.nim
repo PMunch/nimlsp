@@ -1,16 +1,6 @@
-import std / [macros, os]
-
-const explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
-
-macro mImport(path: static[string]): untyped =
-  result = newNimNode(nnkStmtList)
-  result.add(quote do:
-    import `path`
-  )
-
-mImport(explicitSourcePath / "nimsuggest" / "nimsuggest.nim")
+import std / strutils
 import messageenums
-import strutils
+import nimsuggest / nimsuggest
 import compiler / ast
 export Suggest
 export IdeCmd
