@@ -1,4 +1,5 @@
-import streams, strutils, parseutils, json
+import std / [strutils, parseutils, json, asyncfile, asyncdispatch, streams]
+import logger
 
 type
   BaseProtocolError* = object of Defect
@@ -11,25 +12,38 @@ proc skipWhitespace(x: string, pos: int): int =
   while result < x.len and x[result] in Whitespace:
     inc result
 
-proc sendFrame*(s: Stream, frame: string) =
+proc sendFrame*(s: Stream | AsyncFile, frame: string) {.multisync} =
   when defined(debugCommunication):
-    stderr.write(frame)
-    stderr.write("\n")
-  s.write "Content-Length: " & $frame.len & "\r\n\r\n" & frame
-  s.flush
+    infoLog(frame)
+  let content = "Content-Length: " & $frame.len & "\r\n\r\n" & frame
+  when s is Stream:
+    s.write content
+    s.flush
+  else:
+    await s.write content
 
-proc sendJson*(s: Stream, data: JsonNode) =
+proc formFrame*( data: JsonNode): string = 
   var frame = newStringOfCap(1024)
   toUgly(frame, data)
-  s.sendFrame(frame)
+  result = "Content-Length: " & $frame.len & "\r\n\r\n" & frame
 
-proc readFrame*(s: Stream): TaintedString =
+proc sendJson*(s: Stream | AsyncFile, data: JsonNode) {.multisync.} =
+  var frame = newStringOfCap(1024)
+  toUgly(frame, data)
+  when s is Stream:
+    s.sendFrame(frame)
+  else:
+    await s.sendFrame(frame)
+
+proc readFrame*(s: Stream | AsyncFile): Future[string] {.multisync.} =
   var contentLen = -1
   var headerStarted = false
-
+  var ln: string
   while true:
-    var ln = string s.readLine()
-
+    when s is Stream:
+      ln = s.readLine()
+    else:
+      ln = await s.readLine()
     if ln.len != 0:
       headerStarted = true
       let sep = ln.find(':')
@@ -53,13 +67,14 @@ proc readFrame*(s: Stream): TaintedString =
       continue
     else:
       if contentLen != -1:
-        when defined(debugCommunication):
-          let msg = s.readStr(contentLen)
-          stderr.write(msg)
-          stderr.write("\n")
-          return msg
+        when s is Stream:
+          var buf = s.readStr(contentLen)
         else:
-          return s.readStr(contentLen)
+          var buf = newString(contentLen)
+          discard await s.readBuffer(buf[0].addr, contentLen)
+        when defined(debugCommunication):
+          infoLog(buf)
+        return buf
       else:
         raise newException(MalformedFrame, "missing Content-Length header")
 

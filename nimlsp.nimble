@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.3.2"
+version       = "0.4.1"
 author        = "PMunch"
 description   = "Nim Language Server Protocol - nimlsp implements the Language Server Protocol"
 license       = "MIT"
@@ -11,6 +11,7 @@ bin           = @["nimlsp"]
 
 requires "nim >= 1.0.0"
 requires "jsonschema >= 0.2.1"
+requires "asynctools"
 
 # nimble test does not work for me out of the box
 #task test, "Runs the test suite":
@@ -21,8 +22,7 @@ task debug, "Builds the language server":
   exec "nim c --threads:on -d:nimcore -d:nimsuggest -d:debugCommunication -d:debugLogging -o:nimlsp src/nimlsp"
 
 before test:
-  if not fileExists("nimlsp"):
-    exec "nimble build"
+  exec "nimble build"
 
 task findNim, "Tries to find the current Nim installation":
   echo NimVersion
