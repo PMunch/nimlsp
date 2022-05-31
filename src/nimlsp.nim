@@ -298,7 +298,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
               debugLog "Found suggestions: ",
-                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+                suggestions[0..<min(suggestions.len, 10)],
                 if suggestions.len > 10: &" and {suggestions.len-10} more" else: ""
               var
                 completionItems = newJarray()
@@ -350,7 +350,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
               debugLog "Found suggestions: ",
-                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+                suggestions[0..<min(suggestions.len, 10)],
                 if suggestions.len > 10: &" and {suggestions.len-10} more" else: ""
               var resp: JsonNode
               if suggestions.len == 0:
@@ -393,7 +393,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
               debugLog "Found suggestions: ",
-                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+                suggestions[0..<min(suggestions.len, 10)],
                 if suggestions.len > 10: &" and {suggestions.len-10} more" else: ""
               var response = newJarray()
               for suggestion in suggestions:
@@ -427,7 +427,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
               debugLog "Found suggestions: ",
-                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
+                suggestions[0..<min(suggestions.len, 10)],
                 if suggestions.len > 10: &" and {suggestions.len-10} more" else: ""
               var resp: JsonNode
               if suggestions.len == 0:
@@ -463,7 +463,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
               debugLog "Found suggestions: ",
-                declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
+                declarations[0..<min(declarations.len, 10)],
                 if declarations.len > 10: &" and {declarations.len-10} more" else: ""
               var resp: JsonNode
               if declarations.len == 0:
@@ -489,9 +489,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 uriToPath(fileuri),
                 dirtyfile = filestash
               )
-              debugLog "Found outlines: ",
-                syms[0..(if syms.len > 10: 10 else: syms.high)],
-                if syms.len > 10: &" and {syms.len-10} more" else: ""
+              debugLog "Found outlines: ", syms[0..<min(syms.len, 10)],
+                        if syms.len > 10: &" and {syms.len-10} more" else: ""
               var resp: JsonNode
               if syms.len == 0:
                 resp = newJNull()
@@ -632,7 +631,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               let diagnostics = getNimsuggest(fileuri).chk(uriToPath(fileuri),
                                                            dirtyfile = filestash)
               debugLog "Got diagnostics: ",
-                diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
+                diagnostics[0..<min(diagnostics.len, 10)],
                 if diagnostics.len > 10: &" and {diagnostics.len-10} more" else: ""
               var response: seq[Diagnostic]
               for diagnostic in diagnostics:
@@ -669,7 +668,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 let diagnostics = getNimsuggest(f).chk(uriToPath(f),
                                                        dirtyfile = getFileStash(f))
                 debugLog "Got diagnostics: ",
-                  diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
+                  diagnostics[0..<min(diagnostics.len, 10)],
                   if diagnostics.len > 10: &" and {diagnostics.len-10} more" else: ""
 
                 var response: seq[Diagnostic]
