@@ -11,7 +11,10 @@ export initNimSuggest
 proc stopNimSuggest*(nimsuggest: NimSuggest): int = 42
 
 proc `$`*(suggest: Suggest): string =
-  fmt"""(section: {suggest.section}, symKind: {suggest.symkind.TSymKind}, qualifiedPath: {suggest.qualifiedPath.join(".")}, forth: {suggest.forth}, filePath: {suggest.filePath}, line: {suggest.line}, column: {suggest.column}, doc: {suggest.doc}, quality: {suggest.quality}, prefix: {suggest.prefix})"""
+  &"""(section: {suggest.section}, symKind: {suggest.symkind.TSymKind
+  }, qualifiedPath: {suggest.qualifiedPath.join(".")}, forth: {suggest.forth
+  }, filePath: {suggest.filePath}, line: {suggest.line}, column: {suggest.column
+  }, doc: {suggest.doc}, quality: {suggest.quality}, prefix: {suggest.prefix})"""
 
 func collapseByIdentifier*(suggest: Suggest): string =
   ## Function to create an identifier that can be used to remove duplicates in a list
@@ -76,11 +79,14 @@ func nimDocstring*(suggest: Suggest): string =
 template createFullCommand(command: untyped) {.dirty.} =
   proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = "",
             line: int, col: int): seq[Suggest] =
-    nimsuggest.runCmd(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile, line, col)
+    nimsuggest.runCmd(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile,
+                      line, col)
 
 template createFileOnlyCommand(command: untyped) {.dirty.} =
-  proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = ""): seq[Suggest] =
-    nimsuggest.runCmd(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile, 0, 0)
+  proc command*(nimsuggest: NimSuggest, file: string,
+                dirtyfile = ""): seq[Suggest] =
+    nimsuggest.runCmd(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile,
+                      0, 0)
 
 createFullCommand(sug)
 createFullCommand(con)
@@ -96,8 +102,10 @@ proc `mod`*(nimsuggest: NimSuggest, file: string, dirtyfile = ""): seq[Suggest] 
   nimsuggest.runCmd(ideMod, AbsoluteFile file, AbsoluteFile dirtyfile, 0, 0)
 
 when isMainModule:
-  var graph = initNimSuggest("/home/peter/div/nimlsp/suglibtest.nim", nimPath = "/home/peter/div/Nim")
-  var suggestions = graph.sug("/home/peter/div/nimlsp/suglibtest.nim", "/home/peter/div/nimlsp/suglibtest.nim", 7, 2)
+  var graph = initNimSuggest("/home/peter/div/nimlsp/suglibtest.nim",
+                             nimPath = "/home/peter/div/Nim")
+  var suggestions = graph.sug("/home/peter/div/nimlsp/suglibtest.nim",
+                              "/home/peter/div/nimlsp/suglibtest.nim", 7, 2)
   echo "Got ", suggestions.len, " suggestions"
   for suggestion in suggestions:
     echo suggestion
