@@ -1,6 +1,8 @@
-import std / [os, osproc, tables, sets, hashes, strutils, uri, algorithm, asyncfile, asyncdispatch, streams]
-import nimlsppkg / [baseprotocol, utfmapping, suggestlib, logger]
-include nimlsppkg / messages
+import std/[algorithm, asyncdispatch, asyncfile, hashes, os, osproc, sets,
+            streams, strformat, strutils, tables, uri]
+import nimlsppkg/[baseprotocol, logger, suggestlib, utfmapping]
+include nimlsppkg/messages
+
 
 const
   version = block:

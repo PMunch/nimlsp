@@ -1,11 +1,12 @@
-import std / [strformat, strutils]
+import std/[strformat, strutils]
 import messageenums
-import nimsuggest / nimsuggest
-import compiler / ast
+import nimsuggest/nimsuggest
+import compiler/ast
 export Suggest
 export IdeCmd
 export NimSuggest
 export initNimSuggest
+
 
 proc stopNimSuggest*(nimsuggest: NimSuggest): int = 42
 
