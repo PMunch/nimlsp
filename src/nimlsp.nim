@@ -70,7 +70,7 @@ template textDocumentNotification(message, kind, name, body) {.dirty.} =
   if message["params"].isSome:
     let name = message["params"].unsafeGet
     whenValid(name, kind):
-      if not name["textDocument"].hasKey("languageId") or name["textDocument"]["languageId"].getStr == "nim":
+      if "languageId" notin name["textDocument"] or name["textDocument"]["languageId"].getStr == "nim":
         let
           fileuri = name["textDocument"]["uri"].getStr
           filestash = storage / (hash(fileuri).toHex & ".nim" )
@@ -403,7 +403,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 var textEdits = newJObject()
                 for suggestion in suggestions:
                   var k = "file://" & pathToUri(suggestion.filepath)
-                  if not textEdits.hasKey(k):
+                  if k notin textEdits:
                     textEdits[k] = newJArray()
                   textEdits[k].add create(TextEdit, create(Range,
                       create(Position, suggestion.line-1, suggestion.column),
@@ -528,7 +528,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 fingerTable: @[]
               )
 
-              if not projectFiles.hasKey(projectFile):
+              if projectFile notin projectFiles:
                 debugLog "Initialising project with ", projectFile, ":", nimpath
                 projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: initOrderedSet[string]())
               projectFiles[projectFile].openFiles.incl(fileuri)
