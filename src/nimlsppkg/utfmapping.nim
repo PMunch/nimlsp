@@ -55,18 +55,18 @@ when isMainModule:
   var pos = 0
   for c in x.runes:
     stdout.write pos
-    stdout.write "\t"
+    stdout.write '\t'
     stdout.write c
-    stdout.write "\t"
+    stdout.write '\t'
     var corrected = utf16to8(fingerTable, pos)
     stdout.write corrected
-    stdout.write "\t"
+    stdout.write '\t'
     stdout.write x.runeAt(corrected)
     if c.int32 == x.runeAt(corrected).int32:
       stdout.write "\tOK".green
     else:
       stdout.write "\tERR".red
-    stdout.write "\n"
+    stdout.write '\n'
     if c.int >= 0x10000:
       pos += 2
     else:

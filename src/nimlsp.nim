@@ -7,9 +7,9 @@ include nimlsppkg/messages
 const
   version = block:
     var version = "0.0.0"
-    let nimbleFile = staticRead(currentSourcePath().parentDir().parentDir() / "nimlsp.nimble")
+    let nimbleFile = staticRead(currentSourcePath().parentDir /../ "nimlsp.nimble")
     for line in nimbleFile.splitLines:
-      let keyval = line.split("=")
+      let keyval = line.split('=')
       if keyval.len == 2:
         if keyval[0].strip == "version":
           version = keyval[1].strip(chars = Whitespace + {'"'})
@@ -93,7 +93,7 @@ proc pathToUri(path: string): string =
   for c in path:
     case c
     # https://tools.ietf.org/html/rfc3986#section-2.3
-    of 'a'..'z', 'A'..'Z', '0'..'9', '-', '.', '_', '~', '/': add(result, c)
+    of 'a'..'z', 'A'..'Z', '0'..'9', '-', '.', '_', '~', '/': result.add c
     of '\\':
       when defined(windows):
         result.add '/'
@@ -101,8 +101,8 @@ proc pathToUri(path: string): string =
         result.add '%'
         result.add toHex(ord(c), 2)
     else:
-      add(result, '%')
-      add(result, toHex(ord(c), 2))
+      result.add '%'
+      result.add toHex(ord(c), 2)
 
 proc uriToPath(uri: string): string =
   ## Convert an RFC 8089 file URI to a native, platform-specific, absolute path.
