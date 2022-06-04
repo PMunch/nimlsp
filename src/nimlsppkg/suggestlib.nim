@@ -79,14 +79,11 @@ func nimDocstring*(suggest: Suggest): string =
 template createFullCommand(command: untyped) {.dirty.} =
   proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = "",
             line: int, col: int): seq[Suggest] =
-    nimsuggest.runCmd(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile,
-                      line, col)
+    nimsuggest.runCmd(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile, line, col)
 
 template createFileOnlyCommand(command: untyped) {.dirty.} =
-  proc command*(nimsuggest: NimSuggest, file: string,
-                dirtyfile = ""): seq[Suggest] =
-    nimsuggest.runCmd(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile,
-                      0, 0)
+  proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = ""): seq[Suggest] =
+    nimsuggest.runCmd(`ide command`, AbsoluteFile file, AbsoluteFile dirtyfile, 0, 0)
 
 createFullCommand(sug)
 createFullCommand(con)

@@ -55,8 +55,7 @@ proc readFrame*(s: Stream | AsyncFile): Future[string] {.multisync.} =
 
       case ln[0 ..< sep]
       of "Content-Type":
-        if ln.find("utf-8", valueStart) == -1 and
-          ln.find("utf8", valueStart) == -1:
+        if ln.find("utf-8", valueStart) == -1 and ln.find("utf8", valueStart) == -1:
           raise newException(UnsupportedEncoding, "only utf-8 is supported")
       of "Content-Length":
         if parseInt(ln, contentLen, valueStart) == 0:
