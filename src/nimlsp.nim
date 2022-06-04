@@ -402,10 +402,10 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               else:
                 var textEdits = newJObject()
                 for suggestion in suggestions:
-                  var k = "file://" & pathToUri(suggestion.filepath)
-                  if k notin textEdits:
-                    textEdits[k] = newJArray()
-                  textEdits[k].add create(TextEdit, create(Range,
+                  let uri = "file://" & pathToUri(suggestion.filepath)
+                  if uri notin textEdits:
+                    textEdits[uri] = newJArray()
+                  textEdits[uri].add create(TextEdit, create(Range,
                       create(Position, suggestion.line-1, suggestion.column),
                       create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
                     ),
