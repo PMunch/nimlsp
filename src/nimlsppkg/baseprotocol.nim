@@ -1,5 +1,6 @@
-import std / [strutils, parseutils, json, asyncfile, asyncdispatch, streams]
-import logger
+import std/[asyncdispatch, asyncfile, json, parseutils, streams, strformat,
+            strutils]
+
 
 type
   BaseProtocolError* = object of Defect
@@ -15,17 +16,17 @@ proc skipWhitespace(x: string, pos: int): int =
 proc sendFrame*(s: Stream | AsyncFile, frame: string) {.multisync} =
   when defined(debugCommunication):
     infoLog(frame)
-  let content = "Content-Length: " & $frame.len & "\r\n\r\n" & frame
+  let content = &"Content-Length: {frame.len}\r\n\r\n{frame}"
   when s is Stream:
     s.write content
     s.flush
   else:
     await s.write content
 
-proc formFrame*( data: JsonNode): string = 
+proc formFrame*(data: JsonNode): string = 
   var frame = newStringOfCap(1024)
   toUgly(frame, data)
-  result = "Content-Length: " & $frame.len & "\r\n\r\n" & frame
+  result = &"Content-Length: {frame.len}\r\n\r\n{frame}"
 
 proc sendJson*(s: Stream | AsyncFile, data: JsonNode) {.multisync.} =
   var frame = newStringOfCap(1024)

@@ -1,13 +1,15 @@
-import std / [os, osproc, tables, sets, hashes, strutils, uri, algorithm, asyncfile, asyncdispatch, streams]
-import nimlsppkg / [baseprotocol, utfmapping, suggestlib, logger]
-include nimlsppkg / messages
+import std/[algorithm, asyncdispatch, asyncfile, hashes, os, osproc, sets,
+            streams, strformat, strutils, tables, uri]
+import nimlsppkg/[baseprotocol, logger, suggestlib, utfmapping]
+include nimlsppkg/messages
+
 
 const
   version = block:
     var version = "0.0.0"
-    let nimbleFile = staticRead(currentSourcePath().parentDir().parentDir() / "nimlsp.nimble")
+    let nimbleFile = staticRead(currentSourcePath().parentDir /../ "nimlsp.nimble")
     for line in nimbleFile.splitLines:
-      let keyval = line.split("=")
+      let keyval = line.split('=')
       if keyval.len == 2:
         if keyval[0].strip == "version":
           version = keyval[1].strip(chars = Whitespace + {'"'})
@@ -25,7 +27,7 @@ discard existsOrCreateDir(storage)
 infoLog("Version: ", version)
 infoLog("explicitSourcePath: ", explicitSourcePath)
 for i in 1..paramCount():
-  infoLog("Argument " & $i & ": " & paramStr(i))
+  infoLog("Argument ", i, ": ", paramStr(i))
 
 var
   gotShutdown = false
@@ -38,14 +40,14 @@ template whenValid(data, kind, body) =
     var data = kind(data)
     body
   else:
-    debugLog("Unable to parse data as " & $kind)
+    debugLog("Unable to parse data as ", kind)
 
 template whenValidStrict(data, kind, body) =
   if data.isValid(kind):
     var data = kind(data)
     body
   else:
-    debugLog("Unable to parse data as " & $kind)
+    debugLog("Unable to parse data as ", kind)
 
 proc getFileStash(fileuri: string): string =
   return storage / (hash(fileuri).toHex & ".nim" )
@@ -57,7 +59,7 @@ template textDocumentRequest(message, kind, name, body) {.dirty.} =
       let
         fileuri = name["textDocument"]["uri"].getStr
         filestash = storage / (hash(fileuri).toHex & ".nim" )
-      debugLog "Got request for URI: ", fileuri, " copied to " & filestash
+      debugLog "Got request for URI: ", fileuri, " copied to ", filestash
       when kind isnot DocumentSymbolParams:
         let
           rawLine = name["position"]["line"].getInt
@@ -68,7 +70,7 @@ template textDocumentNotification(message, kind, name, body) {.dirty.} =
   if message["params"].isSome:
     let name = message["params"].unsafeGet
     whenValid(name, kind):
-      if not name["textDocument"].hasKey("languageId") or name["textDocument"]["languageId"].getStr == "nim":
+      if "languageId" notin name["textDocument"] or name["textDocument"]["languageId"].getStr == "nim":
         let
           fileuri = name["textDocument"]["uri"].getStr
           filestash = storage / (hash(fileuri).toHex & ".nim" )
@@ -84,7 +86,7 @@ proc pathToUri(path: string): string =
   for c in path:
     case c
     # https://tools.ietf.org/html/rfc3986#section-2.3
-    of 'a'..'z', 'A'..'Z', '0'..'9', '-', '.', '_', '~', '/': add(result, c)
+    of 'a'..'z', 'A'..'Z', '0'..'9', '-', '.', '_', '~', '/': result.add c
     of '\\':
       when defined(windows):
         result.add '/'
@@ -92,8 +94,8 @@ proc pathToUri(path: string): string =
         result.add '%'
         result.add toHex(ord(c), 2)
     else:
-      add(result, '%')
-      add(result, toHex(ord(c), 2))
+      result.add '%'
+      result.add toHex(ord(c), 2)
 
 proc uriToPath(uri: string): string =
   ## Convert an RFC 8089 file URI to a native, platform-specific, absolute path.
@@ -101,11 +103,11 @@ proc uriToPath(uri: string): string =
   #normalizedPath(uri[startIdx..^1])
   let parsed = uri.parseUri
   if parsed.scheme != "file":
-    var e = newException(UriParseError, "Invalid scheme: " & parsed.scheme & ", only \"file\" is supported")
+    var e = newException(UriParseError, &"Invalid scheme: {parsed.scheme}, only \"file\" is supported")
     e.uri = uri
     raise e
   if parsed.hostname != "":
-    var e = newException(UriParseError, "Invalid hostname: " & parsed.hostname & ", only empty hostname is supported")
+    var e = newException(UriParseError, &"Invalid hostname: {parsed.hostname}, only empty hostname is supported")
     e.uri = uri
     raise e
   return normalizedPath(
@@ -199,8 +201,9 @@ if paramCount() == 1:
       quit 0
     else: nimpath = expandFilename(paramStr(1))
 if not fileExists(nimpath / "config/nim.cfg"):
-  stderr.write "Unable to find \"config/nim.cfg\" in \"" & nimpath & "\". " &
-    "Supply the Nim project folder by adding it as an argument.\n"
+  stderr.write &"""Unable to find "config/nim.cfg" in "{nimpath
+  }". Supply the Nim project folder by adding it as an argument.
+"""
   quit 1
 
 proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
@@ -212,7 +215,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
       infoLog frame
       let message = frame.parseJson
       whenValidStrict(message, RequestMessage):
-        debugLog "Got valid Request message of type " & message["method"].getStr
+        debugLog "Got valid Request message of type ", message["method"].getStr
         if not initialized and message["method"].getStr != "initialize":
           multisyncTask:
             outs.error(message, -32002, "Unable to accept requests before being initialized", newJNull())
@@ -274,8 +277,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
               debugLog "Found suggestions: ",
-                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-                (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+                suggestions[0..<min(suggestions.len, 10)],
+                if suggestions.len > 10: &" and {suggestions.len-10} more" else: ""
               var
                 completionItems = newJarray()
                 seenLabels: CountTable[string]
@@ -290,7 +293,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                     seenTimes = seenLabels[collapsed]
                     detail =
                       if seenTimes == 1: some(nimSymDetails(suggestion))
-                      else: some("[" & $seenTimes & " overloads]")
+                      else: some(&"[{seenTimes} overloads]")
                     docstring =
                       if seenTimes == 1: some(suggestion.nimDocstring)
                       else: none(string)
@@ -323,15 +326,16 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
               debugLog "Found suggestions: ",
-                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-                (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+                suggestions[0..<min(suggestions.len, 10)],
+                if suggestions.len > 10: &" and {suggestions.len-10} more" else: ""
               var resp: JsonNode
               if suggestions.len == 0:
                 resp = newJNull()
               else:
                 var label = suggestions[0].qualifiedPath.join(".")
                 if suggestions[0].forth != "":
-                  label &= ": " & suggestions[0].forth
+                  label &= ": "
+                  label &= suggestions[0].forth
                 let
                   rangeopt =
                     some(create(Range,
@@ -361,8 +365,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
               debugLog "Found suggestions: ",
-                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-                (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+                suggestions[0..<min(suggestions.len, 10)],
+                if suggestions.len > 10: &" and {suggestions.len-10} more" else: ""
               var response = newJarray()
               for suggestion in suggestions:
                 if suggestion.section == ideUse or referenceRequest["context"]["includeDeclaration"].getBool:
@@ -390,18 +394,18 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
               debugLog "Found suggestions: ",
-                suggestions[0..(if suggestions.len > 10: 10 else: suggestions.high)],
-                (if suggestions.len > 10: " and " & $(suggestions.len-10) & " more" else: "")
+                suggestions[0..<min(suggestions.len, 10)],
+                if suggestions.len > 10: &" and {suggestions.len-10} more" else: ""
               var resp: JsonNode
               if suggestions.len == 0:
                 resp = newJNull()
               else:
                 var textEdits = newJObject()
                 for suggestion in suggestions:
-                  if not textEdits.hasKey("file://" & pathToUri(suggestion.filepath)):
-                    textEdits["file://" & pathToUri(suggestion.filepath)] = newJArray()
-                  textEdits["file://" & pathToUri(suggestion.filepath)].add create(TextEdit,
-                    create(Range,
+                  let uri = "file://" & pathToUri(suggestion.filepath)
+                  if uri notin textEdits:
+                    textEdits[uri] = newJArray()
+                  textEdits[uri].add create(TextEdit, create(Range,
                       create(Position, suggestion.line-1, suggestion.column),
                       create(Position, suggestion.line-1, suggestion.column + suggestion.qualifiedPath[^1].len)
                     ),
@@ -422,8 +426,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
               debugLog "Found suggestions: ",
-                declarations[0..(if declarations.len > 10: 10 else: declarations.high)],
-                (if declarations.len > 10: " and " & $(declarations.len-10) & " more" else: "")
+                declarations[0..<min(declarations.len, 10)],
+                if declarations.len > 10: &" and {declarations.len-10} more" else: ""
               var resp: JsonNode
               if declarations.len == 0:
                 resp = newJNull()
@@ -441,11 +445,14 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                   outs.respond(message, resp)
           of "textDocument/documentSymbol":
             message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
-              debugLog "Running equivalent of: outline ", uriToPath(fileuri), ";", filestash
-              let syms = getNimsuggest(fileuri).outline(uriToPath(fileuri), dirtyfile = filestash)
-              debugLog "Found outlines: ",
-                syms[0..(if syms.len > 10: 10 else: syms.high)],
-                (if syms.len > 10: " and " & $(syms.len-10) & " more" else: "")
+              debugLog "Running equivalent of: outline ", uriToPath(fileuri),
+                        ";", filestash
+              let syms = getNimsuggest(fileuri).outline(
+                uriToPath(fileuri),
+                dirtyfile = filestash
+              )
+              debugLog "Found outlines: ", syms[0..<min(syms.len, 10)],
+                        if syms.len > 10: &" and {syms.len-10} more" else: ""
               var resp: JsonNode
               if syms.len == 0:
                 resp = newJNull()
@@ -480,7 +487,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               for suggestion in suggestions:
                 var label = suggestion.qualifiedPath.join(".")
                 if suggestion.forth != "":
-                  label &= ": " & suggestion.forth
+                  label &= ": "
+                  label &= suggestion.forth
                 signatures.add create(SignatureInformation,
                   label = label,
                   documentation = some(suggestion.nimDocstring),
@@ -499,7 +507,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               outs.error(message, errorCode = -32600, message = "Unknown request: " & frame, data = newJObject())
         continue
       whenValidStrict(message, NotificationMessage):
-        debugLog "Got valid Notification message of type " & message["method"].getStr
+        debugLog "Got valid Notification message of type ", message["method"].getStr
         if not initialized and message["method"].getStr != "exit":
           continue
         case message["method"].getStr:
@@ -516,14 +524,14 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               let
                 file = open(filestash, fmWrite)
                 projectFile = getProjectFile(uriToPath(fileuri))
-              debugLog "New document opened for URI: ", fileuri, " saving to " & filestash
+              debugLog "New document opened for URI: ", fileuri, " saving to ", filestash
               openFiles[fileuri] = (
                 #nimsuggest: initNimsuggest(uriToPath(fileuri)),
                 projectFile: projectFile,
                 fingerTable: @[]
               )
 
-              if not projectFiles.hasKey(projectFile):
+              if projectFile notin projectFiles:
                 debugLog "Initialising project with ", projectFile, ":", nimpath
                 projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: initOrderedSet[string]())
               projectFiles[projectFile].openFiles.incl(fileuri)
@@ -535,7 +543,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
           of "textDocument/didChange":
             message.textDocumentNotification(DidChangeTextDocumentParams, textDoc):
               let file = open(filestash, fmWrite)
-              debugLog "Got document change for URI: ", fileuri, " saving to " & filestash
+              debugLog "Got document change for URI: ", fileuri, " saving to ", filestash
               openFiles[fileuri].fingerTable = @[]
               for line in textDoc["contentChanges"][0]["text"].getStr.splitLines:
                 openFiles[fileuri].fingerTable.add line.createUTFMapping()
@@ -547,12 +555,13 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
           of "textDocument/didClose":
             message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
               let projectFile = getProjectFile(uriToPath(fileuri))
-              debugLog "Got document close for URI: ", fileuri, " copied to " & filestash
+              debugLog "Got document close for URI: ", fileuri, " copied to ", filestash
               removeFile(filestash)
               projectFiles[projectFile].openFiles.excl(fileuri)
               if projectFiles[projectFile].openFiles.len == 0:
                 debugLog "Trying to stop nimsuggest"
-                debugLog "Stopped nimsuggest with code: " & $getNimsuggest(fileuri).stopNimsuggest()
+                debugLog "Stopped nimsuggest with code: ",
+                          getNimsuggest(fileuri).stopNimsuggest()
               openFiles.del(fileuri)
           of "textDocument/didSave":
             message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
@@ -568,8 +577,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
 
               let diagnostics = getNimsuggest(fileuri).chk(uriToPath(fileuri), dirtyfile = filestash)
               debugLog "Got diagnostics: ",
-                diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
-                (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
+                diagnostics[0..<min(diagnostics.len, 10)],
+                if diagnostics.len > 10: &" and {diagnostics.len-10} more" else: ""
               var response: seq[Diagnostic]
               for diagnostic in diagnostics:
                 if diagnostic.line == 0:
@@ -602,8 +611,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               for f in projectFiles[projectFile].openFiles.items:
                 let diagnostics = getNimsuggest(f).chk(uriToPath(f), dirtyfile = getFileStash(f))
                 debugLog "Got diagnostics: ",
-                  diagnostics[0..(if diagnostics.len > 10: 10 else: diagnostics.high)],
-                  (if diagnostics.len > 10: " and " & $(diagnostics.len-10) & " more" else: "")
+                  diagnostics[0..<min(diagnostics.len, 10)],
+                  if diagnostics.len > 10: &" and {diagnostics.len-10} more" else: ""
 
                 var response: seq[Diagnostic]
                 for diagnostic in diagnostics:

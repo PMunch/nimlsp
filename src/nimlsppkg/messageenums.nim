@@ -8,7 +8,8 @@ type
     InvalidRequest = -32600,
     ServerErrorStart = -32099,
     ServerNotInitialized = -32002,
-    ServerErrorEnd = -32000,
+    ServerErrorEnd = -32000
+
 # Anything below here comes from the LSP specification
 type
   DiagnosticSeverity* {.pure.} = enum
@@ -16,6 +17,7 @@ type
     Warning = 2,
     Information = 3,
     Hint = 4
+
   SymbolKind* {.pure.} = enum
     File = 1,
     Module = 2,
@@ -43,6 +45,7 @@ type
     Event = 24,
     Operator = 25,
     TypeParameter = 26
+
   CompletionItemKind* {.pure.} = enum
     Text = 1,
     Method = 2,
@@ -69,34 +72,42 @@ type
     Event = 23,
     Operator = 24,
     TypeParameter = 25
+
   TextDocumentSyncKind* {.pure.} = enum
     None = 0,
     Full = 1,
     Incremental = 2
+
   MessageType* {.pure.} = enum
     Error = 1,
     Warning = 2,
     Info = 3,
     Log = 4
+
   FileChangeType* {.pure.} = enum
     Created = 1,
     Changed = 2,
     Deleted = 3
+
   WatchKind* {.pure.} = enum
     Create = 1,
     Change = 2,
     Delete = 4
+
   TextDocumentSaveReason* {.pure.} = enum
     Manual = 1,
     AfterDelay = 2,
     FocusOut = 3
+
   CompletionTriggerKind* {.pure.} = enum
     Invoked = 1,
     TriggerCharacter = 2,
     TriggerForIncompleteCompletions = 3
+
   InsertTextFormat* {.pure.} = enum
     PlainText = 1,
     Snippet = 2
+
   DocumentHighlightKind* {.pure.} = enum
     Text = 1,
     Read = 2,
