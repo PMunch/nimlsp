@@ -3,7 +3,7 @@ import std/[asyncdispatch, asyncfile, json, parseutils, streams, strformat,
 
 
 type
-  BaseProtocolError* = object of Defect
+  BaseProtocolError* = object of CatchableError
 
   MalformedFrame* = object of BaseProtocolError
   UnsupportedEncoding* = object of BaseProtocolError
