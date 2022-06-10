@@ -211,7 +211,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
     try:
       debugLog "Trying to read frame"
       let frame = multisyncTask: ins.readFrame
-      debugLog "Got frame:" 
+      debugLog "Got frame:"
       infoLog frame
       let message = frame.parseJson
       whenValidStrict(message, RequestMessage):
@@ -383,7 +383,6 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               else:
                 multisyncTask:
                   outs.respond(message, response)
-             
           of "textDocument/rename":
             message.textDocumentRequest(RenameParams, renameRequest):
               debugLog "Running equivalent of: use ", uriToPath(fileuri), ";", filestash, ":",
@@ -441,8 +440,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                       create(Position, declaration.line-1, declaration.column + declaration.qualifiedPath[^1].len)
                     )
                   ).JsonNode
-                multisyncTask:
-                  outs.respond(message, resp)
+              multisyncTask:
+                outs.respond(message, resp)
           of "textDocument/documentSymbol":
             message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
               debugLog "Running equivalent of: outline ", uriToPath(fileuri),
