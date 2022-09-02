@@ -128,8 +128,8 @@ proc respond(outs: Stream | AsyncFile, request: RequestMessage, data: JsonNode) 
   let resp = create(ResponseMessage, "2.0", parseId(request["id"]), some(data), none(ResponseError)).JsonNode
   await outs.sendJson resp
 
-proc error(outs: Stream | AsyncFile,request: RequestMessage, errorCode: int, message: string, data: JsonNode) {.multisync.} =
-  let resp = create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, errorCode, message, data))).JsonNode
+proc error(outs: Stream | AsyncFile,request: RequestMessage, errorCode: ErrorCode, message: string, data: JsonNode) {.multisync.} =
+  let resp = create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, ord(errorCode), message, data))).JsonNode
   await outs.sendJson resp
 
 proc notify(outs: Stream | AsyncFile,notification: string, data: JsonNode) {.multisync.} =
@@ -209,7 +209,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
       whenValidStrict(message, RequestMessage):
         debugLog "Got valid Request message of type ", message["method"].getStr
         if not initialized and message["method"].getStr != "initialize":
-          await outs.error(message, -32002, "Unable to accept requests before being initialized", newJNull())
+          await outs.error(message, ServerNotInitialized, "Unable to accept requests before being initialized", newJNull())
           continue
         case message["method"].getStr:
           of "shutdown":
@@ -484,7 +484,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               await outs.respond(message, resp)
           else:
             debugLog "Unknown request"
-            await outs.error(message, errorCode = -32600, message = "Unknown request: " & frame, data = newJObject())
+            await outs.error(message, InvalidRequest, "Unknown request: " & frame, newJObject())
         continue
       whenValidStrict(message, NotificationMessage):
         debugLog "Got valid Notification message of type ", message["method"].getStr
