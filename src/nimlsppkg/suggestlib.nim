@@ -8,6 +8,8 @@ export NimSuggest
 export initNimSuggest
 
 
+proc stopNimSuggest*(nimsuggest: NimSuggest): int = 42
+
 proc `$`*(suggest: Suggest): string =
   &"""(section: {suggest.section}, symKind: {suggest.symkind.TSymKind
   }, qualifiedPath: {suggest.qualifiedPath.join(".")}, forth: {suggest.forth
