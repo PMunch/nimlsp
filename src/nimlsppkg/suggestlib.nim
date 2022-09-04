@@ -8,8 +8,6 @@ export NimSuggest
 export initNimSuggest
 
 
-proc stopNimSuggest*(nimsuggest: NimSuggest): int = 42
-
 proc `$`*(suggest: Suggest): string =
   &"""(section: {suggest.section}, symKind: {suggest.symkind.TSymKind
   }, qualifiedPath: {suggest.qualifiedPath.join(".")}, forth: {suggest.forth
@@ -73,8 +71,6 @@ func nimSymDetails*(suggest: Suggest): string =
   of skVar: "var of " & suggest.forth
   else: suggest.forth
 
-func nimDocstring*(suggest: Suggest): string =
-  suggest.doc
 
 template createFullCommand(command: untyped) {.dirty.} =
   proc command*(nimsuggest: NimSuggest, file: string, dirtyfile = "",

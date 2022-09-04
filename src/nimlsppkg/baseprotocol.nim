@@ -31,20 +31,14 @@ proc formFrame*(data: JsonNode): string =
 proc sendJson*(s: Stream | AsyncFile, data: JsonNode) {.multisync.} =
   var frame = newStringOfCap(1024)
   toUgly(frame, data)
-  when s is Stream:
-    s.sendFrame(frame)
-  else:
-    await s.sendFrame(frame)
+  await s.sendFrame(frame)
 
 proc readFrame*(s: Stream | AsyncFile): Future[string] {.multisync.} =
   var contentLen = -1
   var headerStarted = false
   var ln: string
   while true:
-    when s is Stream:
-      ln = s.readLine()
-    else:
-      ln = await s.readLine()
+    ln = await s.readLine()
     if ln.len != 0:
       headerStarted = true
       let sep = ln.find(':')
