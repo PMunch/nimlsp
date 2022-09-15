@@ -284,7 +284,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                       if seenTimes == 1: some(nimSymDetails(suggestion))
                       else: some(&"[{seenTimes} overloads]")
                     docstring =
-                      if seenTimes == 1: some(suggestion.nimDocstring)
+                      if seenTimes == 1: some(suggestion.doc)
                       else: none(string)
                   completionItems.add create(CompletionItem,
                     label = suggestion.qualifiedPath[^1].strip(chars = {'`'}),
@@ -335,7 +335,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                   resp = create(Hover,
                     @[
                       markedString,
-                      create(MarkedStringOption, "", suggestions[0].nimDocstring),
+                      create(MarkedStringOption, "", suggestions[0].doc),
                     ],
                     rangeopt
                   ).JsonNode
@@ -473,7 +473,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                   label &= suggestion.forth
                 signatures.add create(SignatureInformation,
                   label = label,
-                  documentation = some(suggestion.nimDocstring),
+                  documentation = some(suggestion.doc),
                   parameters = none(seq[ParameterInformation])
                 )
               let resp = create(SignatureHelp,
@@ -568,7 +568,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                   continue
                 # Try to guess the size of the identifier
                 let
-                  message = diagnostic.nimDocstring
+                  message = diagnostic.doc
                   endcolumn = diagnostic.column + message.rfind('\'') - message.find('\'') - 1
                 response.add create(Diagnostic,
                   create(Range,
@@ -603,7 +603,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                     continue
                   # Try to guess the size of the identifier
                   let
-                    message = diagnostic.nimDocstring
+                    message = diagnostic.doc
                     endcolumn = diagnostic.column + message.rfind('\'') - message.find('\'') - 1
 
                   response.add create(
