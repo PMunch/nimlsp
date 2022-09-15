@@ -1,6 +1,7 @@
 import std/[asyncdispatch, asyncfile, json, parseutils, streams, strformat,
             strutils]
-
+when defined(debugCommunication):
+  import logger
 
 type
   BaseProtocolError* = object of CatchableError
