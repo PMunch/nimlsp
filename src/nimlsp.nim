@@ -149,7 +149,7 @@ proc getProjectFile(fileUri: string): string =
   var
     path = dir
     certainty = None
-  while path.len > 0 and path != "/":
+  while not path.isRootDir:
     let
       (dir, fname, ext) = path.splitFile()
       current = fname & ext
