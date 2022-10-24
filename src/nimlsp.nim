@@ -23,6 +23,7 @@ type
     uri: string
 
 var nimpath = explicitSourcePath
+
 discard existsOrCreateDir(storage)
 infoLog("Version: ", version)
 infoLog("explicitSourcePath: ", explicitSourcePath)
