@@ -231,7 +231,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               hoverProvider = some(true), # ?: bool
               completionProvider = some(create(CompletionOptions,
                 resolveProvider = some(false),
-                triggerCharacters = some(@[".", " "])
+                triggerCharacters = some(@["."])
               )), # ?: CompletionOptions
               signatureHelpProvider = some(create(SignatureHelpOptions,
                 triggerCharacters = some(@["(", ","])
