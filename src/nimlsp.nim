@@ -283,14 +283,11 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                     detail =
                       if seenTimes == 1: some(nimSymDetails(suggestion))
                       else: some(&"[{seenTimes} overloads]")
-                    docstring =
-                      if seenTimes == 1: some(suggestion.doc)
-                      else: none(string)
                   completionItems.add create(CompletionItem,
                     label = suggestion.qualifiedPath[^1].strip(chars = {'`'}),
                     kind = some(nimSymToLSPKind(suggestion).int),
                     detail = detail,
-                    documentation = docstring,
+                    documentation = some(suggestion.nimDocstring),
                     deprecated = none(bool),
                     preselect = none(bool),
                     sortText = none(string),
