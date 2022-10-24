@@ -287,7 +287,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                     label = suggestion.qualifiedPath[^1].strip(chars = {'`'}),
                     kind = some(nimSymToLSPKind(suggestion).int),
                     detail = detail,
-                    documentation = some(suggestion.nimDocstring),
+                    documentation = some(suggestion.doc),
                     deprecated = none(bool),
                     preselect = none(bool),
                     sortText = none(string),
