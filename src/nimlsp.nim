@@ -1,5 +1,6 @@
 import std/[algorithm, asyncdispatch, asyncfile, hashes, os, osproc, sets,
             streams, strformat, strutils, tables, uri]
+import asynctools/asyncproc
 import nimlsppkg/[baseprotocol, logger, suggestlib, utfmapping]
 include nimlsppkg/messages
 
@@ -24,7 +25,6 @@ type
 
 var nimpath = explicitSourcePath
 
-discard existsOrCreateDir(storage)
 infoLog("Version: ", version)
 infoLog("explicitSourcePath: ", explicitSourcePath)
 for i in 1..paramCount():
@@ -129,11 +129,11 @@ proc respond(outs: Stream | AsyncFile, request: RequestMessage, data: JsonNode) 
   let resp = create(ResponseMessage, "2.0", parseId(request["id"]), some(data), none(ResponseError)).JsonNode
   await outs.sendJson resp
 
-proc error(outs: Stream | AsyncFile,request: RequestMessage, errorCode: ErrorCode, message: string, data: JsonNode) {.multisync.} =
+proc error(outs: Stream | AsyncFile, request: RequestMessage, errorCode: ErrorCode, message: string, data: JsonNode) {.multisync.} =
   let resp = create(ResponseMessage, "2.0", parseId(request["id"]), none(JsonNode), some(create(ResponseError, ord(errorCode), message, data))).JsonNode
   await outs.sendJson resp
 
-proc notify(outs: Stream | AsyncFile,notification: string, data: JsonNode) {.multisync.} =
+proc notify(outs: Stream | AsyncFile, notification: string, data: JsonNode) {.multisync.} =
   let resp = create(NotificationMessage, "2.0", notification, some(data)).JsonNode
   await outs.sendJson resp
 
@@ -164,7 +164,7 @@ proc getProjectFile(fileUri: string): string =
       certainty = Cfg
     if certainty <= Nimble:
       for nimble in walkFiles(path / "*.nimble"):
-        let info = execProcess("nimble dump " & nimble)
+        let info = osproc.execProcess("nimble dump " & nimble, options = {osproc.poEvalCommand, osproc.poUsePath})
         var sourceDir, name: string
         for line in info.splitLines:
           if line.startsWith("srcDir"):
@@ -199,7 +199,26 @@ if not fileExists(nimpath / "config/nim.cfg"):
 """
   quit 1
 
+proc checkVersion(outs: Stream | AsyncFile) {.multisync.} =
+  let
+    nimoutputTuple =
+      when outs is AsyncFile: await asyncproc.execProcess("nim --version", options = {asyncproc.poEvalCommand, asyncproc.poUsePath})
+      else: osproc.execCmdEx("nim --version", options = {osproc.poEvalCommand, osproc.poUsePath})
+  if nimoutputTuple.exitcode == 0:
+    let
+      nimoutput = nimoutputTuple.output
+      versionStart = "Nim Compiler Version ".len
+      version = nimoutput[versionStart..<nimoutput.find(" ", versionStart)]
+      #hashStart = nimoutput.find("git hash") + 10
+      #hash = nimoutput[hashStart..nimoutput.find("\n", hashStart)]
+    if version != NimVersion:
+      await outs.notify("window/showMessage", create(ShowMessageParams, MessageType.Warning.int, message = "Current Nim version does not match the one NimLSP is built against " & version & " != " & NimVersion).JsonNode)
+
 proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
+  when outs is AsyncFile:
+    await checkVersion(outs)
+  else:
+    checkVersion(outs)
   while true:
     try:
       debugLog "Trying to read frame"
