@@ -223,8 +223,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
     try:
       debugLog "Trying to read frame"
       let frame = await ins.readFrame
-      debugLog "Got frame:"
-      infoLog frame
+      debugLog "Got frame"
       let message = frame.parseJson
       whenValidStrict(message, RequestMessage):
         debugLog "Got valid Request message of type ", message["method"].getStr

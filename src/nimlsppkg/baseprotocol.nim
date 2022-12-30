@@ -16,22 +16,20 @@ proc skipWhitespace(x: string, pos: int): int =
 
 proc sendFrame*(s: Stream | AsyncFile, frame: string) {.multisync} =
   when defined(debugCommunication):
-    infoLog(frame)
-  let content = &"Content-Length: {frame.len}\r\n\r\n{frame}"
+    frameLog(Out, frame)
   when s is Stream:
-    s.write content
+    s.write frame
     s.flush
   else:
-    await s.write content
+    await s.write frame
 
-proc formFrame*(data: JsonNode): string = 
+proc formFrame*(data: JsonNode): string =
   var frame = newStringOfCap(1024)
   toUgly(frame, data)
   result = &"Content-Length: {frame.len}\r\n\r\n{frame}"
 
 proc sendJson*(s: Stream | AsyncFile, data: JsonNode) {.multisync.} =
-  var frame = newStringOfCap(1024)
-  toUgly(frame, data)
+  let frame = formFrame(data)
   await s.sendFrame(frame)
 
 proc readFrame*(s: Stream | AsyncFile): Future[string] {.multisync.} =
@@ -59,9 +57,13 @@ proc readFrame*(s: Stream | AsyncFile): Future[string] {.multisync.} =
       else:
         # Unrecognized headers are ignored
         discard
+      when defined(debugCommunication):
+        frameLog(In, ln)
     elif not headerStarted:
       continue
     else:
+      when defined(debugCommunication):
+        frameLog(In, ln)
       if contentLen != -1:
         when s is Stream:
           var buf = s.readStr(contentLen)
@@ -69,7 +71,7 @@ proc readFrame*(s: Stream | AsyncFile): Future[string] {.multisync.} =
           var buf = newString(contentLen)
           discard await s.readBuffer(buf[0].addr, contentLen)
         when defined(debugCommunication):
-          infoLog(buf)
+          frameLog(In, buf)
         return buf
       else:
         raise newException(MalformedFrame, "missing Content-Length header")

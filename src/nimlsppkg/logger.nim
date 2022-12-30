@@ -23,3 +23,17 @@ template errorLog*(args: varargs[string, `$`]) =
 template warnLog*(args: varargs[string, `$`]) =
   when defined(debugLogging):
     warn join(args)
+
+type FrameDirection* = enum In, Out
+
+template frameLog*(direction: FrameDirection, args: varargs[string, `$`]) =
+  let oldFmtStr = rollingLog.fmtStr
+  case direction:
+  of Out: rollingLog.fmtStr = "<< "
+  of In: rollingLog.fmtStr = ">> "
+  let msg = join(args)
+  for line in msg.splitLines:
+    info line
+  flushFile rollingLog.file
+  rollingLog.fmtStr = oldFmtStr
+
