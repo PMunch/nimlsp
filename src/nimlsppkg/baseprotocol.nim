@@ -68,8 +68,15 @@ proc readFrame*(s: Stream | AsyncFile): Future[string] {.multisync.} =
         when s is Stream:
           var buf = s.readStr(contentLen)
         else:
-          var buf = newString(contentLen)
-          discard await s.readBuffer(buf[0].addr, contentLen)
+          var
+            buf = newString(contentLen)
+            head = 0
+          while contentLen > 0:
+            let bytesRead = await s.readBuffer(buf[head].addr, contentLen)
+            if bytesRead == 0:
+              raise newException(MalformedFrame, "Unexpected EOF")
+            contentLen -= bytesRead
+            head += bytesRead
         when defined(debugCommunication):
           frameLog(In, buf)
         return buf
