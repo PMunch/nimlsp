@@ -191,6 +191,8 @@ if paramCount() == 1:
       quit 0
     of "--version":
       echo "nimlsp v", version
+      when defined(debugLogging): echo "Compiled with debug logging"
+      when defined(debugCommunication): echo "Compiled with communication logging"
       quit 0
     else: nimpath = expandFilename(paramStr(1))
 if not fileExists(nimpath / "config/nim.cfg"):

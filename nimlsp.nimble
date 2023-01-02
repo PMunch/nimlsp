@@ -1,11 +1,11 @@
 # Package
 
-version       = "0.4.3"
+version       = "0.4.4"
 author        = "PMunch"
 description   = "Nim Language Server Protocol - nimlsp implements the Language Server Protocol"
 license       = "MIT"
 srcDir        = "src"
-bin           = @["nimlsp"]
+bin           = @["nimlsp", "nimlsp_debug"]
 
 # Dependencies
 
