@@ -1,3 +1,10 @@
+# author        = "The core Nim team"
+# description   = "Nim language server for IDEs"
+# license       = "MIT"
+#
+# Most of this file is copied from https://github.com/nim-lang/langserver/blob/master/suggestapi.nim
+# However, there isn't a license there, only showing that the code is under MIT license
+
 import std/[
     asyncdispatch,
     asyncnet,
