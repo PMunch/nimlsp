@@ -1,7 +1,7 @@
 import std/[algorithm, asyncdispatch, asyncfile, hashes, os, osproc, sets,
             streams, strformat, strutils, tables, uri]
 import asynctools/asyncproc
-import nimlsppkg/[baseprotocol, logger, suggestlib, utfmapping]
+import nimlsppkg/[baseprotocol, logger, suggestapi, utfmapping]
 include nimlsppkg/messages
 
 
@@ -16,17 +16,12 @@ const
           version = keyval[1].strip(chars = Whitespace + {'"'})
           break
     version
-  # This is used to explicitly set the default source path
-  explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
 
 type
   UriParseError* = object of Defect
     uri: string
 
-var nimpath = explicitSourcePath
-
 infoLog("Version: ", version)
-infoLog("explicitSourcePath: ", explicitSourcePath)
 for i in 1..paramCount():
   infoLog("Argument ", i, ": ", paramStr(i))
 
@@ -187,19 +182,13 @@ if paramCount() == 1:
       echo "Usage: nimlsp [OPTION | PATH]\n"
       echo "--help, shows this message"
       echo "--version, shows only the version"
-      echo "PATH, path to the Nim source directory, defaults to \"", nimpath, "\""
       quit 0
     of "--version":
       echo "nimlsp v", version
       when defined(debugLogging): echo "Compiled with debug logging"
       when defined(debugCommunication): echo "Compiled with communication logging"
       quit 0
-    else: nimpath = expandFilename(paramStr(1))
-if not fileExists(nimpath / "config/nim.cfg"):
-  stderr.write &"""Unable to find "config/nim.cfg" in "{nimpath
-  }". Supply the Nim project folder by adding it as an argument.
-"""
-  quit 1
+    else: discard
 
 proc checkVersion(outs: Stream | AsyncFile) {.multisync.} =
   let
@@ -216,7 +205,7 @@ proc checkVersion(outs: Stream | AsyncFile) {.multisync.} =
     if version != NimVersion:
       await outs.notify("window/showMessage", create(ShowMessageParams, MessageType.Warning.int, message = "Current Nim version does not match the one NimLSP is built against " & version & " != " & NimVersion).JsonNode)
 
-proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
+proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.async.} =
   when outs is AsyncFile:
     await checkVersion(outs)
   else:
@@ -282,7 +271,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               debugLog "Running equivalent of: sug ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-              let suggestions = getNimsuggest(fileuri).sug(uriToPath(fileuri), dirtyfile = filestash,
+              let suggestions = await getNimsuggest(fileuri).sug(uriToPath(fileuri), dirtyfile = filestash,
                 rawLine + 1,
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
@@ -327,7 +316,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               debugLog "Running equivalent of: def ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-              let suggestions = getNimsuggest(fileuri).def(uriToPath(fileuri), dirtyfile = filestash,
+              let suggestions = await getNimsuggest(fileuri).def(uriToPath(fileuri), dirtyfile = filestash,
                 rawLine + 1,
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
@@ -365,7 +354,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               debugLog "Running equivalent of: use ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-              let suggestions = getNimsuggest(fileuri).use(uriToPath(fileuri), dirtyfile = filestash,
+              let suggestions = await getNimsuggest(fileuri).use(uriToPath(fileuri), dirtyfile = filestash,
                 rawLine + 1,
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
@@ -391,7 +380,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               debugLog "Running equivalent of: use ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-              let suggestions = getNimsuggest(fileuri).use(uriToPath(fileuri), dirtyfile = filestash,
+              let suggestions = await getNimsuggest(fileuri).use(uriToPath(fileuri), dirtyfile = filestash,
                 rawLine + 1,
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
@@ -423,7 +412,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               debugLog "Running equivalent of: def ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-              let declarations = getNimsuggest(fileuri).def(uriToPath(fileuri), dirtyfile = filestash,
+              let declarations = await getNimsuggest(fileuri).def(uriToPath(fileuri), dirtyfile = filestash,
                 rawLine + 1,
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
               )
@@ -448,7 +437,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
             message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
               debugLog "Running equivalent of: outline ", uriToPath(fileuri),
                         ";", filestash
-              let syms = getNimsuggest(fileuri).outline(
+              let syms = await getNimsuggest(fileuri).outline(
                 uriToPath(fileuri),
                 dirtyfile = filestash
               )
@@ -464,8 +453,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                     continue
                   resp.add create(
                     SymbolInformation,
-                    sym.name[],
-                    nimSymToLSPKind(sym.symKind).int,
+                    sym.name,
+                    nimSymToLSPKind(sym).int,
                     some(false),
                     create(Location,
                     "file://" & pathToUri(sym.filepath),
@@ -482,7 +471,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               debugLog "Running equivalent of: con ", uriToPath(fileuri), ";", filestash, ":",
                 rawLine + 1, ":",
                 openFiles[fileuri].fingerTable[rawLine].utf16to8(rawChar)
-              let suggestions = getNimsuggest(fileuri).con(uriToPath(fileuri), dirtyfile = filestash, rawLine + 1, rawChar)
+              let suggestions = await getNimsuggest(fileuri).con(uriToPath(fileuri), dirtyfile = filestash, rawLine + 1, rawChar)
               var signatures = newSeq[SignatureInformation]()
               for suggestion in suggestions:
                 var label = suggestion.qualifiedPath.join(".")
@@ -530,8 +519,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               )
 
               if projectFile notin projectFiles:
-                debugLog "Initialising project with ", projectFile, ":", nimpath
-                projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: initOrderedSet[string]())
+                debugLog "Initialising project: projectFile=", projectFile
+                projectFiles[projectFile] = (nimsuggest: await createNimsuggest(projectFile), openFiles: initOrderedSet[string]())
               projectFiles[projectFile].openFiles.incl(fileuri)
 
               for line in textDoc["textDocument"]["text"].getStr.splitLines:
@@ -559,7 +548,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               if projectFiles[projectFile].openFiles.len == 0:
                 debugLog "Trying to stop nimsuggest"
                 debugLog "Stopped nimsuggest with code: ",
-                          getNimsuggest(fileuri).stopNimsuggest()
+                          getNimsuggest(fileuri).stopWithCode()
               openFiles.del(fileuri)
           of "textDocument/didSave":
             message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
@@ -573,7 +562,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 file.close()
               debugLog "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
 
-              let diagnostics = getNimsuggest(fileuri).chk(uriToPath(fileuri), dirtyfile = filestash)
+              let diagnostics = await getNimsuggest(fileuri).chk(uriToPath(fileuri), dirtyfile = filestash)
               debugLog "Got diagnostics: ",
                 diagnostics[0..<min(diagnostics.len, 10)],
                 if diagnostics.len > 10: &" and {diagnostics.len-10} more" else: ""
@@ -607,7 +596,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               # Invoke chk on all open files.
               let projectFile = openFiles[fileuri].projectFile
               for f in projectFiles[projectFile].openFiles.items:
-                let diagnostics = getNimsuggest(f).chk(uriToPath(f), dirtyfile = getFileStash(f))
+                let diagnostics = await getNimsuggest(f).chk(uriToPath(f), dirtyfile = getFileStash(f))
                 debugLog "Got diagnostics: ",
                   diagnostics[0..<min(diagnostics.len, 10)],
                   if diagnostics.len > 10: &" and {diagnostics.len-10} more" else: ""
@@ -663,7 +652,7 @@ when defined(windows):
   var
     ins = newFileStream(stdin)
     outs = newFileStream(stdout)
-  main(ins, outs)
+  waitFor main(ins, outs)
 else:
   var
     ins = newAsyncFile(stdin.getOsFileHandle().AsyncFD)

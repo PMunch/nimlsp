@@ -1,3 +1,4 @@
 nimcache/
-nimlsp
+/nimlsp
+/nimlsp_debug
 tests/tnimlsp

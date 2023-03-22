@@ -1,4 +1,3 @@
 import std/os
 
-const explicitSourcePath {.strdefine.} = getCurrentCompilerExe().parentDir.parentDir
-switch "path", explicitSourcePath
+switch "define", "async_backend=asyncdispatch"
