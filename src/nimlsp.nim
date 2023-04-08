@@ -2,7 +2,7 @@ import std/[algorithm, asyncdispatch, asyncfile, hashes, os, osproc, sets,
             streams, strformat, strutils, tables, uri]
 import asynctools/asyncproc
 import nimlsppkg/[baseprotocol, logger, suggestlib, utfmapping]
-include nimlsppkg/messages
+include nimlsppkg/[messages, messageenums]
 
 
 const
