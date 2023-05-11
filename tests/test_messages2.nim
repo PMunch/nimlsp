@@ -1,5 +1,5 @@
 import std / [unittest]
-include nimlsppkg / messages
+include nimlsppkg / [messages, messageenums]
 #import packedjson
 
 let message = "Hello World"
