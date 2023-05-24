@@ -1,5 +1,4 @@
 import std/[json, options, sequtils]
-import messageenums
 # Anything below here comes from the LSP specification
 import pkg/jsonschema
 
@@ -11,12 +10,12 @@ jsonSchema:
   RequestMessage extends Message:
     id: int or float or string
     "method": string
-    params?: any[] or any
+    params ?: any[] or any
 
   ResponseMessage extends Message:
     id: int or float or string or nil
-    "result"?: any
-    error?: ResponseError
+    "result" ?: any
+    error ?: ResponseError
 
   ResponseError:
     code: int or float
@@ -25,7 +24,7 @@ jsonSchema:
 
   NotificationMessage extends Message:
     "method": string
-    params?: any[] or any
+    params ?: any[] or any
 
   CancelParams:
     id: int or float or string
@@ -44,11 +43,11 @@ jsonSchema:
 
   Diagnostic:
     "range": Range
-    severity?: int or float
-    code?: int or float or string
-    source?: string
+    severity ?: int or float
+    code ?: int or float or string
+    source ?: string
     message: string
-    relatedInformation?: DiagnosticRelatedInformation[]
+    relatedInformation ?: DiagnosticRelatedInformation[]
 
   DiagnosticRelatedInformation:
     location: Location
@@ -57,7 +56,7 @@ jsonSchema:
   Command:
     title: string
     command: string
-    arguments?: any[]
+    arguments ?: any[]
 
   TextEdit:
     "range": Range
@@ -68,8 +67,8 @@ jsonSchema:
     edits: TextEdit[]
 
   WorkspaceEdit:
-    changes?: any # This is a uri(string) to TextEdit[] mapping
-    documentChanges?: TextDocumentEdit[]
+    changes ?: any # This is a uri(string) to TextEdit[] mapping
+    documentChanges ?: TextDocumentEdit[]
 
   TextDocumentIdentifier:
     uri: string # Note that this is not checked
@@ -82,16 +81,16 @@ jsonSchema:
 
   VersionedTextDocumentIdentifier extends TextDocumentIdentifier:
     version: int or float or nil
-    languageId?: string # SublimeLSP adds this field erroneously
+    languageId ?: string # SublimeLSP adds this field erroneously
 
   TextDocumentPositionParams:
     textDocument: TextDocumentIdentifier
     position: Position
 
   DocumentFilter:
-    language?: string
-    scheme?: string
-    pattern?: string
+    language ?: string
+    scheme ?: string
+    pattern ?: string
 
   MarkupContent:
     kind: string # "plaintext" or "markdown"
@@ -99,145 +98,145 @@ jsonSchema:
 
   InitializeParams:
     processId: int or float or nil
-    rootPath?: string or nil
+    rootPath ?: string or nil
     rootUri: string or nil # String is DocumentUri
-    initializationOptions?: any
+    initializationOptions ?: any
     capabilities: ClientCapabilities
-    trace?: string # 'off' or 'messages' or 'verbose'
-    workspaceFolders?: WorkspaceFolder[] or nil
+    trace ?: string # 'off' or 'messages' or 'verbose'
+    workspaceFolders ?: WorkspaceFolder[] or nil
 
   WorkspaceEditCapability:
-    documentChanges?: bool
+    documentChanges ?: bool
 
   DidChangeConfigurationCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   DidChangeWatchedFilesCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   SymbolKindCapability:
-    valueSet?: int # SymbolKind enum
+    valueSet ?: int # SymbolKind enum
 
   SymbolCapability:
-    dynamicRegistration?: bool
-    symbolKind?: SymbolKindCapability
+    dynamicRegistration ?: bool
+    symbolKind ?: SymbolKindCapability
 
   ExecuteCommandCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   WorkspaceClientCapabilities:
-    applyEdit?: bool
-    workspaceEdit?: WorkspaceEditCapability
-    didChangeConfiguration?: DidChangeConfigurationCapability
-    didChangeWatchedFiles?: DidChangeWatchedFilesCapability
-    symbol?: SymbolCapability
-    executeCommand?: ExecuteCommandCapability
-    workspaceFolders?: bool
-    configuration?: bool
+    applyEdit ?: bool
+    workspaceEdit ?: WorkspaceEditCapability
+    didChangeConfiguration ?: DidChangeConfigurationCapability
+    didChangeWatchedFiles ?: DidChangeWatchedFilesCapability
+    symbol ?: SymbolCapability
+    executeCommand ?: ExecuteCommandCapability
+    workspaceFolders ?: bool
+    configuration ?: bool
 
   SynchronizationCapability:
-    dynamicRegistration?: bool
-    willSave?: bool
-    willSaveWaitUntil?: bool
-    didSave?: bool
+    dynamicRegistration ?: bool
+    willSave ?: bool
+    willSaveWaitUntil ?: bool
+    didSave ?: bool
 
   CompletionItemCapability:
-    snippetSupport?: bool
-    commitCharactersSupport?: bool
-    documentFormat?: string[] # MarkupKind
-    deprecatedSupport?: bool
+    snippetSupport ?: bool
+    commitCharactersSupport ?: bool
+    documentFormat ?: string[] # MarkupKind
+    deprecatedSupport ?: bool
 
   CompletionItemKindCapability:
-    valueSet?: int[] # CompletionItemKind enum
+    valueSet ?: int[] # CompletionItemKind enum
 
   CompletionCapability:
-    dynamicRegistration?: bool
-    completionItem?: CompletionItemCapability
-    completionItemKind?: CompletionItemKindCapability
-    contextSupport?: bool
+    dynamicRegistration ?: bool
+    completionItem ?: CompletionItemCapability
+    completionItemKind ?: CompletionItemKindCapability
+    contextSupport ?: bool
 
   HoverCapability:
-    dynamicRegistration?: bool
-    contentFormat?: string[] # MarkupKind
+    dynamicRegistration ?: bool
+    contentFormat ?: string[] # MarkupKind
 
   SignatureInformationCapability:
-    documentationFormat?: string[] # MarkupKind
+    documentationFormat ?: string[] # MarkupKind
 
   SignatureHelpCapability:
-    dynamicRegistration?: bool
-    signatureInformation?: SignatureInformationCapability
+    dynamicRegistration ?: bool
+    signatureInformation ?: SignatureInformationCapability
 
   ReferencesCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   DocumentHighlightCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   DocumentSymbolCapability:
-    dynamicRegistration?: bool
-    symbolKind?: SymbolKindCapability
+    dynamicRegistration ?: bool
+    symbolKind ?: SymbolKindCapability
 
   FormattingCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   RangeFormattingCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   OnTypeFormattingCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   DefinitionCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   TypeDefinitionCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   ImplementationCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   CodeActionCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   CodeLensCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   DocumentLinkCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   ColorProviderCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   RenameCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   PublishDiagnosticsCapability:
-    dynamicRegistration?: bool
+    dynamicRegistration ?: bool
 
   TextDocumentClientCapabilities:
-    synchronization?: SynchronizationCapability
-    completion?: CompletionCapability
-    hover?: HoverCapability
-    signatureHelp?: SignatureHelpCapability
-    references?: ReferencesCapability
-    documentHighlight?: DocumentHighlightCapability
-    documentSymbol?: DocumentSymbolCapability
-    formatting?: FormattingCapability
-    rangeFormatting?: RangeFormattingCapability
-    onTypeFormatting?: OnTypeFormattingCapability
-    definition?: DefinitionCapability
-    typeDefinition?: TypeDefinitionCapability
-    implementation?: ImplementationCapability
-    codeAction?: CodeActionCapability
-    codeLens?: CodeLensCapability
-    documentLink?: DocumentLinkCapability
-    colorProvider?: ColorProviderCapability
-    rename?: RenameCapability
-    publishDiagnostics?: PublishDiagnosticsCapability
+    synchronization ?: SynchronizationCapability
+    completion ?: CompletionCapability
+    hover ?: HoverCapability
+    signatureHelp ?: SignatureHelpCapability
+    references ?: ReferencesCapability
+    documentHighlight ?: DocumentHighlightCapability
+    documentSymbol ?: DocumentSymbolCapability
+    formatting ?: FormattingCapability
+    rangeFormatting ?: RangeFormattingCapability
+    onTypeFormatting ?: OnTypeFormattingCapability
+    definition ?: DefinitionCapability
+    typeDefinition ?: TypeDefinitionCapability
+    implementation ?: ImplementationCapability
+    codeAction ?: CodeActionCapability
+    codeLens ?: CodeLensCapability
+    documentLink ?: DocumentLinkCapability
+    colorProvider ?: ColorProviderCapability
+    rename ?: RenameCapability
+    publishDiagnostics ?: PublishDiagnosticsCapability
 
   ClientCapabilities:
-    workspace?: WorkspaceClientCapabilities
-    textDocument?: TextDocumentClientCapabilities
-    experimental?: any
+    workspace ?: WorkspaceClientCapabilities
+    textDocument ?: TextDocumentClientCapabilities
+    experimental ?: any
 
   WorkspaceFolder:
     uri: string
@@ -250,80 +249,80 @@ jsonSchema:
     retry: bool
 
   CompletionOptions:
-    resolveProvider?: bool
-    triggerCharacters?: string[]
+    resolveProvider ?: bool
+    triggerCharacters ?: string[]
 
   SignatureHelpOptions:
-    triggerCharacters?: string[]
+    triggerCharacters ?: string[]
 
   CodeLensOptions:
-    resolveProvider?: bool
+    resolveProvider ?: bool
 
   DocumentOnTypeFormattingOptions:
     firstTriggerCharacter: string
-    moreTriggerCharacter?: string[]
+    moreTriggerCharacter ?: string[]
 
   DocumentLinkOptions:
-    resolveProvider?: bool
+    resolveProvider ?: bool
 
   ExecuteCommandOptions:
-   commands: string[]
+    commands: string[]
 
   SaveOptions:
-    includeText?: bool
+    includeText ?: bool
 
   ColorProviderOptions:
-    DUMMY?: nil # This is actually an empty object
+    DUMMY ?: nil # This is actually an empty object
 
   TextDocumentSyncOptions:
-    openClose?: bool
-    change?: int or float
-    willSave?: bool
-    willSaveWaitUntil?: bool
-    save?: SaveOptions
+    openClose ?: bool
+    change ?: int or float
+    willSave ?: bool
+    willSaveWaitUntil ?: bool
+    save ?: SaveOptions
 
   StaticRegistrationOptions:
-    id?: string
+    id ?: string
 
   WorkspaceFolderCapability:
-    supported?: bool
-    changeNotifications?: string or bool
+    supported ?: bool
+    changeNotifications ?: string or bool
 
   WorkspaceCapability:
-    workspaceFolders?: WorkspaceFolderCapability
+    workspaceFolders ?: WorkspaceFolderCapability
 
   TextDocumentRegistrationOptions:
     documentSelector: DocumentFilter[] or nil
 
   TextDocumentAndStaticRegistrationOptions extends TextDocumentRegistrationOptions:
-    id?: string
+    id ?: string
 
   ServerCapabilities:
-    textDocumentSync?: TextDocumentSyncOptions or int or float
-    hoverProvider?: bool
-    completionProvider?: CompletionOptions
-    signatureHelpProvider?: SignatureHelpOptions
-    definitionProvider?: bool
-    typeDefinitionProvider?: bool or TextDocumentAndStaticRegistrationOptions
-    implementationProvider?: bool or TextDocumentAndStaticRegistrationOptions
-    referencesProvider?: bool
-    documentHighlightProvider?: bool
-    documentSymbolProvider?: bool
-    workspaceSymbolProvider?: bool
-    codeActionProvider?: bool
-    codeLensProvider?: CodeLensOptions
-    documentFormattingProvider?: bool
-    documentRangeFormattingProvider?: bool
-    documentOnTypeFormattingProvider?: DocumentOnTypeFormattingOptions
-    renameProvider?: bool
-    documentLinkProvider?: DocumentLinkOptions
-    colorProvider?: bool or ColorProviderOptions or TextDocumentAndStaticRegistrationOptions
-    executeCommandProvider?: ExecuteCommandOptions
-    workspace?: WorkspaceCapability
-    experimental?: any
+    textDocumentSync ?: TextDocumentSyncOptions or int or float
+    hoverProvider ?: bool
+    completionProvider ?: CompletionOptions
+    signatureHelpProvider ?: SignatureHelpOptions
+    definitionProvider ?: bool
+    typeDefinitionProvider ?: bool or TextDocumentAndStaticRegistrationOptions
+    implementationProvider ?: bool or TextDocumentAndStaticRegistrationOptions
+    referencesProvider ?: bool
+    documentHighlightProvider ?: bool
+    documentSymbolProvider ?: bool
+    workspaceSymbolProvider ?: bool
+    codeActionProvider ?: bool
+    codeLensProvider ?: CodeLensOptions
+    documentFormattingProvider ?: bool
+    documentRangeFormattingProvider ?: bool
+    documentOnTypeFormattingProvider ?: DocumentOnTypeFormattingOptions
+    renameProvider ?: bool
+    documentLinkProvider ?: DocumentLinkOptions
+    colorProvider ?: bool or ColorProviderOptions or TextDocumentAndStaticRegistrationOptions
+    executeCommandProvider ?: ExecuteCommandOptions
+    workspace ?: WorkspaceCapability
+    experimental ?: any
 
   InitializedParams:
-    DUMMY?: nil # This is actually an empty object
+    DUMMY ?: nil # This is actually an empty object
 
   ShowMessageParams:
     "type": int # MessageType
@@ -335,7 +334,7 @@ jsonSchema:
   ShowMessageRequestParams:
     "type": int # MessageType
     message: string
-    actions?: MessageActionItem[]
+    actions ?: MessageActionItem[]
 
   LogMessageParams:
     "type": int # MessageType
@@ -344,7 +343,7 @@ jsonSchema:
   Registration:
     id: string
     "method": string
-    registrationOptions?: any
+    registrationOptions ?: any
 
   RegistrationParams:
     registrations: Registration[]
@@ -370,8 +369,8 @@ jsonSchema:
     "items": ConfigurationItem[]
 
   ConfigurationItem:
-    scopeUri?: string
-    section?: string
+    scopeUri ?: string
+    section ?: string
 
   FileEvent:
     uri: string # DocumentUri
@@ -385,20 +384,20 @@ jsonSchema:
 
   FileSystemWatcher:
     globPattern: string
-    kind?: int # WatchKindCreate (bitmap)
+    kind ?: int # WatchKindCreate (bitmap)
 
   WorkspaceSymbolParams:
     query: string
 
   ExecuteCommandParams:
     command: string
-    arguments?: any[]
+    arguments ?: any[]
 
   ExecuteCommandRegistrationOptions:
     commands: string[]
 
   ApplyWorkspaceEditParams:
-    label?: string
+    label ?: string
     edit: WorkspaceEdit
 
   ApplyWorkspaceEditResponse:
@@ -412,8 +411,8 @@ jsonSchema:
     contentChanges: TextDocumentContentChangeEvent[]
 
   TextDocumentContentChangeEvent:
-    range?: Range
-    rangeLength?: int or float
+    range ?: Range
+    rangeLength ?: int or float
     text: string
 
   TextDocumentChangeRegistrationOptions extends TextDocumentRegistrationOptions:
@@ -425,10 +424,10 @@ jsonSchema:
 
   DidSaveTextDocumentParams:
     textDocument: TextDocumentIdentifier
-    text?: string
+    text ?: string
 
   TextDocumentSaveRegistrationOptions extends TextDocumentRegistrationOptions:
-    includeText?: bool
+    includeText ?: bool
 
   DidCloseTextDocumentParams:
     textDocument: TextDocumentIdentifier
@@ -438,11 +437,11 @@ jsonSchema:
     diagnostics: Diagnostic[]
 
   CompletionParams extends TextDocumentPositionParams:
-    context?: CompletionContext
+    context ?: CompletionContext
 
   CompletionContext:
     triggerKind: int # CompletionTriggerKind
-    triggerCharacter?: string
+    triggerCharacter ?: string
 
   CompletionList:
     isIncomplete: bool
@@ -450,24 +449,24 @@ jsonSchema:
 
   CompletionItem:
     label: string
-    kind?: int # CompletionItemKind
-    detail?: string
-    documentation?: string or MarkupContent
-    deprecated?: bool
-    preselect?: bool
-    sortText?: string
-    filterText?: string
-    insertText?: string
-    insertTextFormat?: int #InsertTextFormat
-    textEdit?: TextEdit
-    additionalTextEdits?: TextEdit[]
-    commitCharacters?: string[]
-    command?: Command
-    data?: any
+    kind ?: int # CompletionItemKind
+    detail ?: string
+    documentation ?: string or MarkupContent
+    deprecated ?: bool
+    preselect ?: bool
+    sortText ?: string
+    filterText ?: string
+    insertText ?: string
+    insertTextFormat ?: int #InsertTextFormat
+    textEdit ?: TextEdit
+    additionalTextEdits ?: TextEdit[]
+    commitCharacters ?: string[]
+    command ?: Command
+    data ?: any
 
   CompletionRegistrationOptions extends TextDocumentRegistrationOptions:
-    triggerCharacters?: string[]
-    resolveProvider?: bool
+    triggerCharacters ?: string[]
+    resolveProvider ?: bool
 
   MarkedStringOption:
     language: string
@@ -475,24 +474,24 @@ jsonSchema:
 
   Hover:
     contents: string or MarkedStringOption or string[] or MarkedStringOption[] or MarkupContent
-    range?: Range
+    range ?: Range
 
   SignatureHelp:
     signatures: SignatureInformation[]
-    activeSignature?: int or float
-    activeParameter?: int or float
+    activeSignature ?: int or float
+    activeParameter ?: int or float
 
   SignatureInformation:
     label: string
-    documentation?: string or MarkupContent
-    parameters?: ParameterInformation[]
+    documentation ?: string or MarkupContent
+    parameters ?: ParameterInformation[]
 
   ParameterInformation:
     label: string
-    documentation?: string or MarkupContent
+    documentation ?: string or MarkupContent
 
   SignatureHelpRegistrationOptions extends TextDocumentRegistrationOptions:
-    triggerCharacters?: string[]
+    triggerCharacters ?: string[]
 
   ReferenceParams extends TextDocumentPositionParams:
     context: ReferenceContext
@@ -502,7 +501,7 @@ jsonSchema:
 
   DocumentHighlight:
     "range": Range
-    kind?: int # DocumentHighlightKind
+    kind ?: int # DocumentHighlightKind
 
   DocumentSymbolParams:
     textDocument: TextDocumentIdentifier
@@ -510,9 +509,9 @@ jsonSchema:
   SymbolInformation:
     name: string
     kind: int # SymbolKind
-    deprecated?: bool
+    deprecated ?: bool
     location: Location
-    containerName?: string
+    containerName ?: string
 
   CodeActionParams:
     textDocument: TextDocumentIdentifier
@@ -527,22 +526,22 @@ jsonSchema:
 
   CodeLens:
     "range": Range
-    command?: Command
-    data?: any
+    command ?: Command
+    data ?: any
 
   CodeLensRegistrationOptions extends TextDocumentRegistrationOptions:
-    resolveProvider?: bool
+    resolveProvider ?: bool
 
   DocumentLinkParams:
     textDocument: TextDocumentIdentifier
 
   DocumentLink:
     "range": Range
-    target?: string # DocumentUri
-    data?: any
+    target ?: string # DocumentUri
+    data ?: any
 
   DocumentLinkRegistrationOptions extends TextDocumentRegistrationOptions:
-    resolveProvider?: bool
+    resolveProvider ?: bool
 
   DocumentColorParams:
     textDocument: TextDocumentIdentifier
@@ -564,8 +563,8 @@ jsonSchema:
 
   ColorPresentation:
     label: string
-    textEdit?: TextEdit
-    additionalTextEdits?: TextEdit[]
+    textEdit ?: TextEdit
+    additionalTextEdits ?: TextEdit[]
 
   DocumentFormattingParams:
     textDocument: TextDocumentIdentifier
@@ -589,7 +588,7 @@ jsonSchema:
 
   DocumentOnTypeFormattingRegistrationOptions extends TextDocumentRegistrationOptions:
     firstTriggerCharacter: string
-    moreTriggerCharacter?: string[]
+    moreTriggerCharacter ?: string[]
 
   RenameParams:
     textDocument: TextDocumentIdentifier

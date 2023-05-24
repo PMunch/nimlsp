@@ -1,4 +1,4 @@
-import std/[unittest, asyncdispatch, asyncfile, os, options, json, strutils, streams]
+import std/[unittest, asyncdispatch, os, options, json, strutils ]
 import .. / src / nimlsppkg / baseprotocol
 include .. / src / nimlsppkg / messages
 import pkg/asynctools
