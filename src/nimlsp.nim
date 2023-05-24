@@ -295,9 +295,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 addedSuggestions: HashSet[string]
               for suggestion in suggestions:
                 seenLabels.inc suggestion.collapseByIdentifier
-              for i in countUp(0,suggestions.len-1):
-                let suggestion = suggestions[i]
-                let collapsed = suggestion.collapseByIdentifier
+              for i in 0..suggestions.high:
+                let collapsed = suggestions[i].collapseByIdentifier
                 if not addedSuggestions.contains collapsed:
                   addedSuggestions.incl collapsed
                   let
