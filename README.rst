@@ -92,20 +92,6 @@ Sublime Text
 Install the `LSP plugin <https://packagecontrol.io/packages/LSP>`_.
 Install the `NimLime plugin <https://packagecontrol.io/packages/NimLime>`_ for syntax highlighting.
 
-Apart from syntax highlighting, NimLime can perform many of the features that ``nimlsp`` provides.
-It is recommended to disable those for optimal experience.
-For this, navigate to ``Preferences > Package Settings > NimLime > Settings`` and set ``*.enabled`` settings to ``false``:
-
-.. code:: js
-
-   {
-      "error_handler.enabled": false,
-      "check.on_save.enabled": false,
-      "check.current_file.enabled": false,
-      "check.external_file.enabled": false,
-      "check.clear_errors.enabled": false,
-   }
-
 To set up LSP, run ``Preferences: LSP settings`` from the command palette and add the following:
 
 .. code:: js
@@ -122,12 +108,29 @@ To set up LSP, run ``Preferences: LSP settings`` from the command palette and ad
             // ST3 only
             "languageId": "nim",
             "scopes": ["source.nim"],
-            "syntaxes": ["Packages/NimLime/Syntaxes/Nim.tmLanguage"]
+            "syntaxes": ["Packages/NimLime/Syntaxes/Nim.sublime-syntax"]
          }
       }
    }
 
 *Note: Make sure ``<path/to>/.nimble/bin`` is added to your ``PATH``.*
+
+To enable syntax highlighting in popups, run ``Preferences: settings`` and add the following:
+
+.. code:: js
+
+   "mdpopups.use_sublime_highlighter": true,
+   "mdpopups.sublime_user_lang_map": {
+      "nim":
+      [
+         [
+            "nim"
+         ],
+         [
+            "NimLime/Syntaxes/Nim"
+         ]
+      ]
+   }
 
 Vim
 -------
