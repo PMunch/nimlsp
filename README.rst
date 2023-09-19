@@ -196,6 +196,13 @@ With lsp-mode and use-package:
      :hook
      (nim-mode . lsp))
 
+Or with Eglot
+
+.. code:: emacs-lisp
+
+(add-to-list 'eglot-server-programs
+             '(nim-mode "nimlsp"))
+
 Intellij
 -------
 You will need to install the `LSP support plugin <https://plugins.jetbrains.com/plugin/10209-lsp-support>`_.
