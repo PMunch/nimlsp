@@ -39,7 +39,9 @@ Nim repository, so make sure you have a copy of that somewhere. Manually having 
 copy of Nim this way means the default source path will not work so you need to
 set it explicitly on compilation with ``-d:explicitSourcePath=PATH`` and point to
 it at runtime (technically the runtime should only need the stdlib, so omitting
-it will make ``nimlsp`` try to find it from your Nim install).
+it will make ``nimlsp`` try to find it from your Nim install). As of Nim 2.0.0 you must run
+the 'build_all' script in the Nim repository first (``nimsuggest`` expects to import a file
+that is not otherwise present).
 
 To do the standard build run:
 
