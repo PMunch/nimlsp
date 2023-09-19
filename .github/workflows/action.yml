@@ -51,4 +51,4 @@ jobs:
     - name: Install Packages
       run: nimble install -d -y
     - name: Test
-      run: nimble test
+      run: nimble test --verbose
