@@ -190,7 +190,7 @@ if paramCount() == 1:
       echo "PATH, path to the Nim source directory, defaults to \"", nimpath, "\""
       quit 0
     of "--version":
-      echo "nimlsp v", version
+      echo "nimlsp v", version, " built for Nim version ", NimVersion
       when defined(debugLogging): echo "Compiled with debug logging"
       when defined(debugCommunication): echo "Compiled with communication logging"
       quit 0
