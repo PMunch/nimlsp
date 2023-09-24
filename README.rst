@@ -203,7 +203,7 @@ Or with Eglot
 
 .. code:: emacs-lisp
 
-(add-to-list 'eglot-server-programs
+   (add-to-list 'eglot-server-programs
              '(nim-mode "nimlsp"))
 
 Intellij
