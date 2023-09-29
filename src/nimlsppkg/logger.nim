@@ -31,6 +31,7 @@ template warnLog*(args: varargs[string, `$`]) =
 type FrameDirection* = enum In, Out
 
 template frameLog*(direction: FrameDirection, args: varargs[string, `$`]) =
+  bind info
   let oldFmtStr = rollingLog.fmtStr
   case direction:
   of Out: rollingLog.fmtStr = "<< "
