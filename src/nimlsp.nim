@@ -561,13 +561,12 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               debugLog "Got document close for URI: ", fileuri, " copied to ", filestash
               projectFiles[projectFile].openFiles.excl(fileuri)
               if projectFiles[projectFile].openFiles.len == 0:
-                debugLog "Trying to stop nimsuggest"
-                debugLog "Stopped nimsuggest with code: ",
-                          getNimsuggest(fileuri).stopNimsuggest()
+                debugLog "No more open files for project ", projectFile
                 debugLog "Cleaning up dirty files"
                 for dirtyfile in projectFiles[openFiles[fileuri].projectFile].dirtyFiles:
                   removeFile(dirtyfile)
-
+                debugLog "Deleting context"
+                projectFiles.del(projectFile)
               openFiles.del(fileuri)
           of "textDocument/didSave":
             message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
