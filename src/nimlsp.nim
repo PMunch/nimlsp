@@ -557,7 +557,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
             message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
               let projectFile = getProjectFile(uriToPath(fileuri))
               debugLog "Got document close for URI: ", fileuri, " copied to ", filestash
-              removeFile(filestash)
+              #removeFile(filestash)
               projectFiles[projectFile].openFiles.excl(fileuri)
               if projectFiles[projectFile].openFiles.len == 0:
                 debugLog "Trying to stop nimsuggest"
