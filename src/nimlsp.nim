@@ -33,7 +33,7 @@ for i in 1..paramCount():
 var
   gotShutdown = false
   initialized = false
-  projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: OrderedSet[string]]]()
+  projectFiles = initTable[string, tuple[nimsuggest: NimSuggest, openFiles: OrderedSet[string], dirtyFiles: HashSet[string]]]()
   openFiles = initTable[string, tuple[projectFile: string, fingerTable: seq[seq[tuple[u16pos, offset: int]]]]]()
 
 template whenValid(data, kind, body) =
@@ -51,7 +51,7 @@ template whenValidStrict(data, kind, body) =
     debugLog("Unable to parse data as ", kind)
 
 proc getFileStash(fileuri: string): string =
-  return storage / (hash(fileuri).toHex & ".nim" )
+  return storage / (hash(fileuri).toHex & ".nim")
 
 template textDocumentRequest(message, kind, name, body) {.dirty.} =
   if message["params"].isSome:
@@ -534,8 +534,9 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
 
               if projectFile notin projectFiles:
                 debugLog "Initialising project with ", projectFile, ":", nimpath
-                projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: initOrderedSet[string]())
+                projectFiles[projectFile] = (nimsuggest: initNimsuggest(projectFile, nimpath), openFiles: initOrderedSet[string](), dirtyFiles: initHashSet[string]())
               projectFiles[projectFile].openFiles.incl(fileuri)
+              projectFiles[projectFile].dirtyFiles.incl(filestash)
 
               for line in textDoc["textDocument"]["text"].getStr.splitLines:
                 openFiles[fileuri].fingerTable.add line.createUTFMapping()
@@ -550,6 +551,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 openFiles[fileuri].fingerTable.add line.createUTFMapping()
                 file.writeLine line
               file.close()
+              projectFiles[openFiles[fileuri].projectFile].dirtyFiles.incl(filestash)
 
               # Notify nimsuggest about a file modification.
               discard getNimsuggest(fileuri).mod(uriToPath(fileuri), dirtyfile = filestash)
@@ -557,12 +559,14 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
             message.textDocumentNotification(DidCloseTextDocumentParams, textDoc):
               let projectFile = getProjectFile(uriToPath(fileuri))
               debugLog "Got document close for URI: ", fileuri, " copied to ", filestash
-              removeFile(filestash)
               projectFiles[projectFile].openFiles.excl(fileuri)
               if projectFiles[projectFile].openFiles.len == 0:
-                debugLog "Trying to stop nimsuggest"
-                debugLog "Stopped nimsuggest with code: ",
-                          getNimsuggest(fileuri).stopNimsuggest()
+                debugLog "No more open files for project ", projectFile
+                debugLog "Cleaning up dirty files"
+                for dirtyfile in projectFiles[openFiles[fileuri].projectFile].dirtyFiles:
+                  removeFile(dirtyfile)
+                debugLog "Deleting context"
+                projectFiles.del(projectFile)
               openFiles.del(fileuri)
           of "textDocument/didSave":
             message.textDocumentNotification(DidSaveTextDocumentParams, textDoc):
@@ -574,6 +578,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                   openFiles[fileuri].fingerTable.add line.createUTFMapping()
                   file.writeLine line
                 file.close()
+                projectFiles[openFiles[fileuri].projectFile].dirtyFiles.incl(filestash)
               debugLog "fileuri: ", fileuri, ", project file: ", openFiles[fileuri].projectFile, ", dirtyfile: ", filestash
 
               let diagnostics = getNimsuggest(fileuri).chk(uriToPath(fileuri), dirtyfile = filestash)
