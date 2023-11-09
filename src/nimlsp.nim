@@ -51,7 +51,7 @@ template whenValidStrict(data, kind, body) =
     debugLog("Unable to parse data as ", kind)
 
 proc getFileStash(fileuri: string): string =
-  return storage / (hash(fileuri).toHex & ".nim" )
+  return storage / (hash(fileuri).toHex & ".nim")
 
 template textDocumentRequest(message, kind, name, body) {.dirty.} =
   if message["params"].isSome:
