@@ -177,6 +177,7 @@ proc getProjectFile(fileUri: string): string =
           result = projectFile
           certainty = Nimble
     path = dir
+  debugLog "Found project file " & result & " for input file " & fileUri
 
 template getNimsuggest(fileuri: string): Nimsuggest =
   projectFiles[openFiles[fileuri].projectFile].nimsuggest
@@ -190,7 +191,7 @@ if paramCount() == 1:
       echo "PATH, path to the Nim source directory, defaults to \"", nimpath, "\""
       quit 0
     of "--version":
-      echo "nimlsp v", version, " built for Nim version ", NimVersion
+      echo "nimlsp v", version, " - built for Nim version ", NimVersion
       when defined(debugLogging): echo "Compiled with debug logging"
       when defined(debugCommunication): echo "Compiled with communication logging"
       quit 0
