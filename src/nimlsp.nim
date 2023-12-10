@@ -473,10 +473,11 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               await outs.respond(message, resp)
           of "textDocument/documentSymbol":
             message.textDocumentRequest(DocumentSymbolParams, symbolRequest):
-              debugLog "Running equivalent of: outline ", uriToPath(fileuri),
+              let filePath = uriToPath(fileuri)
+              debugLog "Running equivalent of: outline ", filePath,
                         ";", filestash
               let syms = getNimsuggest(fileuri).outline(
-                uriToPath(fileuri),
+                filePath,
                 dirtyfile = filestash
               )
               debugLog "Found outlines: ", syms[0..<min(syms.len, 10)],
@@ -490,6 +491,10 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
                 var symbols: OrderedTable[string, (Suggest, seq[Suggest])]
                 resp = newJarray()
                 for sym in syms.sortedByIt((it.line,it.column,it.quality)):
+                  # DocumentSymbol only allows specifying symbols in current file.
+                  # So skip past external symbols that might be included
+                  if sym.filepath != filePath: continue
+
                   let key = sym.qualifiedPath[0..<2].join("")
                   if sym.qualifiedPath.len == 2:
                     # Parent add it
