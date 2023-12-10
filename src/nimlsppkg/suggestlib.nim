@@ -43,6 +43,7 @@ func nimSymToLSPKind*(suggest: byte): SymbolKind =
   case TSymKind(suggest):
   of skConst: SymbolKind.Constant
   of skEnumField: SymbolKind.EnumMember
+  of skField: SymbolKind.Field
   of skIterator: SymbolKind.Function
   of skConverter: SymbolKind.Function
   of skLet: SymbolKind.Variable
