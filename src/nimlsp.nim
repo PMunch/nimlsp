@@ -2,7 +2,7 @@ import std/[algorithm, asyncdispatch, asyncfile, hashes, os, osproc, sets,
             streams, strformat, strutils, tables, uri]
 import asynctools/asyncproc
 import nimlsppkg/[baseprotocol, logger, suggestlib, utfmapping]
-include nimlsppkg/[messages, messageenums]
+include nimlsppkg/[messages, messageenums, capabilities]
 
 
 const
@@ -125,6 +125,28 @@ proc parseId(node: JsonNode): int =
   else:
     raise newException(MalformedFrame, "Invalid id node: " & repr(node))
 
+func newTokenRange(x: Suggest): Range =
+  ## Creates a [Range] that spans the length of the token
+  result = Range.create(
+    Position.create(x.line - 1, x.column),
+    Position.create(x.line - 1, x.column + x.tokenLen)
+  )
+
+func newDocumentSymbol(sug: Suggest, children: seq[Suggest]): DocumentSymbol =
+  ## Creates a [DocumentSymbol] from a suggestion
+  let childSymbols = children.mapIt(newDocumentSymbol(it, @[]))
+  result = DocumentSymbol.create(
+    sug.name[],
+    none(string),
+    nimSymToLSPKind(sug.symKind).int,
+    none(seq[int]),
+    newTokenRange(sug),
+    # TODO: Make selectionRange use endCol/endLine.
+    # This requires support for v3
+    newTokenRange(sug),
+    if children.len > 0: some(childSymbols) else: none(seq[DocumentSymbol])
+  )
+
 proc respond(outs: Stream | AsyncFile, request: RequestMessage, data: JsonNode) {.multisync.} =
   let resp = create(ResponseMessage, "2.0", parseId(request["id"]), some(data), none(ResponseError)).JsonNode
   await outs.sendJson resp
@@ -222,6 +244,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
     await checkVersion(outs)
   else:
     checkVersion(outs)
+  var capabilities: ClientCapabilities
   while true:
     try:
       debugLog "Trying to read frame"
@@ -242,6 +265,7 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
           of "initialize":
             debugLog "Got initialize request, answering"
             initialized = true
+            capabilities = ClientCapabilities(message["params"].get()["capabilities"])
             let resp = create(InitializeResult, create(ServerCapabilities,
               textDocumentSync = some(create(TextDocumentSyncOptions,
                 openClose = some(true),
@@ -461,24 +485,37 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               if syms.len == 0:
                 resp = newJNull()
               else:
+                # Store suggestion along with children
+                # that should appear under it
+                var symbols: OrderedTable[string, (Suggest, seq[Suggest])]
                 resp = newJarray()
                 for sym in syms.sortedByIt((it.line,it.column,it.quality)):
-                  if sym.qualifiedPath.len != 2:
-                    continue
-                  resp.add create(
-                    SymbolInformation,
-                    sym.name[],
-                    nimSymToLSPKind(sym.symKind).int,
-                    some(false),
-                    create(Location,
-                    "file://" & pathToUri(sym.filepath),
-                      create(Range,
-                        create(Position, sym.line-1, sym.column),
-                        create(Position, sym.line-1, sym.column + sym.qualifiedPath[^1].len)
-                      )
-                    ),
-                    none(string)
-                  ).JsonNode
+                  let key = sym.qualifiedPath[0..<2].join("")
+                  if sym.qualifiedPath.len == 2:
+                    # Parent add it
+                    symbols[key] = (sym, @[])
+                  else:
+                    # Append child to parent.
+                    # LHS of types are semmed first so shouldn't
+                    # run into key access problems
+                    symbols[key][1] &= sym
+
+                let useDocumentSymbol = capabilities.supportsHierarchicalSymbols()
+                for (sym, children) in symbols.values():
+                  let kind = nimSymToLSPKind(sym.symKind).int
+                  if useDocumentSymbol:
+                    resp &= newDocumentSymbol(sym, children).JsonNode
+                  else:
+                    resp &= SymbolInformation.create(
+                      sym.name[],
+                      kind,
+                      some(false),
+                      create(Location,
+                      "file://" & pathToUri(sym.filepath),
+                        newTokenRange(sym)
+                      ),
+                      none(string)
+                    ).JsonNode
               await outs.respond(message, resp)
           of "textDocument/signatureHelp":
             message.textDocumentRequest(TextDocumentPositionParams, sigHelpRequest):

@@ -519,7 +519,7 @@ jsonSchema:
     detail ?: string
     kind: int # SymbolKind
     tags ?: int[] # SymbolTag[]
-    range: Range
+    "range": Range
     selectionRange: Range
     children ?: DocumentSymbol[]
 
