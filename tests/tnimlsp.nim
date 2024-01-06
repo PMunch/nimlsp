@@ -4,7 +4,7 @@ include .. / src / nimlsppkg / messages
 import pkg/asynctools
 
 let
-  nimlsp = parentDir(parentDir(currentSourcePath())) / "nimlsp"
+  nimlsp = parentDir(parentDir(currentSourcePath())) / "nimlsp".addFileExt(ExeExt)
   p = startProcess(nimlsp, options = {})
 
 suite "Nim LSP basic operation":
