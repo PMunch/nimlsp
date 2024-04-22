@@ -91,7 +91,7 @@ Setting up ``nimlsp``
 Sublime Text
 ::::::::::::
 Install the `LSP plugin <https://packagecontrol.io/packages/LSP>`_.
-Install the `NimLime plugin <https://packagecontrol.io/packages/NimLime>`_ for syntax highlighting.
+Install the `Nim plugin <https://packagecontrol.io/packages/Nim>`_ for syntax highlighting.
 
 To set up LSP, run ``Preferences: LSP settings`` from the command palette and add the following:
 
@@ -109,7 +109,7 @@ To set up LSP, run ``Preferences: LSP settings`` from the command palette and ad
             // ST3 only
             "languageId": "nim",
             "scopes": ["source.nim"],
-            "syntaxes": ["Packages/NimLime/Syntaxes/Nim.sublime-syntax"]
+            "syntaxes": ["Packages/Nim/Syntaxes/Nim.sublime-syntax"]
          }
       }
    }
@@ -128,7 +128,7 @@ To enable syntax highlighting in popups, run ``Preferences: settings`` and add t
             "nim"
          ],
          [
-            "NimLime/Syntaxes/Nim"
+            "Nim/Syntaxes/Nim"
          ]
       ]
    }
