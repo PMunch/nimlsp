@@ -214,8 +214,10 @@ proc checkVersion(outs: Stream | AsyncFile) {.multisync.} =
       version = nimoutput[versionStart..<nimoutput.find(" ", versionStart)]
       #hashStart = nimoutput.find("git hash") + 10
       #hash = nimoutput[hashStart..nimoutput.find("\n", hashStart)]
-    if version != NimVersion:
-      await outs.notify("window/showMessage", create(ShowMessageParams, MessageType.Warning.int, message = "Current Nim version does not match the one NimLSP is built against " & version & " != " & NimVersion).JsonNode)
+
+    when not defined(nimlspDontWarnAboutNimVersion):
+      if version != NimVersion:
+        await outs.notify("window/showMessage", create(ShowMessageParams, MessageType.Warning.int, message = "Current Nim version does not match the one NimLSP is built against " & version & " != " & NimVersion).JsonNode)
 
 proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
   when outs is AsyncFile:
