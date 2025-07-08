@@ -1,6 +1,5 @@
-==========
 Nim Language Server Protocol
-==========
+============================
 
 This is a `Language Server Protocol
 <https://microsoft.github.io/language-server-protocol/>`_ implementation in
@@ -10,7 +9,7 @@ supports LSP will now have the same quality of suggestions that has previously
 only been available in supported editors.
 
 Installing ``nimlsp``
-=======
+---------------------
 If you have installed Nim through ``choosenim`` (recommended) the easiest way to
 install ``nimlsp`` is to use ``nimble`` with:
 
@@ -32,7 +31,7 @@ a custom copy of the stdlib by passing it as an argument to ``nimlsp``. How
 exectly to do that will depend on the LSP client.
 
 Compile ``nimlsp``
-=======
+------------------
 If you want more control over the compilation feel free to clone the
 repository. ``nimlsp`` depends on the ``nimsuggest`` sources which are in the main
 Nim repository, so make sure you have a copy of that somewhere. Manually having a
@@ -62,7 +61,7 @@ Or if you want even more debug output from the LSP format:
    nimble debug -d:debugLogging
 
 Supported Protocol features
-=======
+---------------------------
 
 ======  ================================
 Status  LSP Command
@@ -88,11 +87,11 @@ Status  LSP Command
 
 
 Setting up ``nimlsp``
-=======
+--------------------
 Sublime Text
--------
+::::::::::::
 Install the `LSP plugin <https://packagecontrol.io/packages/LSP>`_.
-Install the `NimLime plugin <https://packagecontrol.io/packages/NimLime>`_ for syntax highlighting.
+Install the `Nim plugin <https://packagecontrol.io/packages/Nim>`_ for syntax highlighting.
 
 To set up LSP, run ``Preferences: LSP settings`` from the command palette and add the following:
 
@@ -110,7 +109,7 @@ To set up LSP, run ``Preferences: LSP settings`` from the command palette and ad
             // ST3 only
             "languageId": "nim",
             "scopes": ["source.nim"],
-            "syntaxes": ["Packages/NimLime/Syntaxes/Nim.sublime-syntax"]
+            "syntaxes": ["Packages/Nim/Syntaxes/Nim.sublime-syntax"]
          }
       }
    }
@@ -129,13 +128,13 @@ To enable syntax highlighting in popups, run ``Preferences: settings`` and add t
             "nim"
          ],
          [
-            "NimLime/Syntaxes/Nim"
+            "Nim/Syntaxes/Nim"
          ]
       ]
    }
 
 Vim
--------
+::::::::::
 To use ``nimlsp`` in Vim install the ``prabirshrestha/vim-lsp`` plugin and
 dependencies:
 
@@ -188,7 +187,7 @@ various functions to rename and get definitions. Of course you are free to
 configure this any way you'd like.
 
 Emacs
--------
+::::::::
 
 With lsp-mode and use-package:
 
@@ -207,7 +206,7 @@ Or with Eglot
              '(nim-mode "nimlsp"))
 
 Intellij
--------
+::::::::
 You will need to install the `LSP support plugin <https://plugins.jetbrains.com/plugin/10209-lsp-support>`_.
 For syntax highlighting i would recommend the "official" `nim plugin <https://plugins.jetbrains.com/plugin/15128-nim>`_
 (its not exactly official, but its developed by an intellij dev), the plugin will eventually use nimsuggest and have support for 
@@ -225,7 +224,7 @@ To use it:
 4. Hit apply and everything should be working now.
 
 Kate
--------
+::::::::
 The LSP plugin has to be enabled in the Kate (version >= 19.12.0) plugins menu:
 
 1. In ``Settings > Configure Kate > Application > Plugins``, check box next to ``LSP Client`` to enable LSP functionality.
@@ -248,7 +247,7 @@ This assumes that nimlsp was installed through nimble.
 *Note: Server initialization may fail without full path specified, from home directory, under the ``"command"`` entry, even if nimlsp is in system's ``PATH``.*
 
 VS Code
--------
+:::::::
 Install a VS Code extension that supports NimLSP (2 available at the moment):
 
 - https://marketplace.visualstudio.com/items?itemName=junknet.nimlsp
@@ -260,7 +259,7 @@ Set ``nimlsp.path`` extension setting to the binary path of ``nimlsp``. If you'v
 
 
 Run Tests
-=========
+---------
 Not too many at the moment unfortunately, but they can be run with:
 
 .. code:: bash
@@ -269,7 +268,7 @@ Not too many at the moment unfortunately, but they can be run with:
 
 
 Debug
-=========
+---------
 Use ``nimlsp_debug`` executable instead of ``nimlsp``, which is installed alongside it and should already be available in your path. 
 
 Log files containing stdin/out will be generated in ``getTempDir() / "nimlsp-" & $getCurrentProcessId() / "nimlsp.log"`` folder, where ``getCurrentProcessId()`` is the running pid of ``nimlsp_debug`` instance executed by the IDE/extension, and can be read using ``pgrep -a nimlsp_debug``. Crashes may print stacktraces in stderr, which is not contained in logs but may captured by LSP client.
