@@ -21,8 +21,6 @@ jobs:
           - windows-latest
           - macOS-latest
         nim-version:
-          - 1.2.0
-          - 1.4.0
           - 1.6.0
           - 2.0.0
           - devel
