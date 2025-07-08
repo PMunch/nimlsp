@@ -218,10 +218,6 @@ proc checkVersion(outs: Stream | AsyncFile) {.multisync.} =
       await outs.notify("window/showMessage", create(ShowMessageParams, MessageType.Warning.int, message = "Current Nim version does not match the one NimLSP is built against " & version & " != " & NimVersion).JsonNode)
 
 proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
-  when outs is AsyncFile:
-    await checkVersion(outs)
-  else:
-    checkVersion(outs)
   while true:
     try:
       debugLog "Trying to read frame"
@@ -278,6 +274,10 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
               experimental = none(JsonNode) #?: any
             )).JsonNode
             await outs.respond(message,resp)
+            when outs is AsyncFile:
+              await checkVersion(outs)
+            else:
+              checkVersion(outs)
           of "textDocument/completion":
             message.textDocumentRequest(CompletionParams, compRequest):
               debugLog "Running equivalent of: sug ", uriToPath(fileuri), ";", filestash, ":",
