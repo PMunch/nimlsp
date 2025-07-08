@@ -21,8 +21,6 @@ jobs:
           - windows-latest
           - macOS-latest
         nim-version:
-          - 1.2.0
-          - 1.4.0
           - 1.6.0
           - 2.0.0
           - devel
@@ -32,14 +30,14 @@ jobs:
 
     - name: Cache choosenim
       id: cache-choosenim
-      uses: actions/cache@v1
+      uses: actions/cache@v4
       with:
         path: ~/.choosenim
         key: ${{ runner.os }}-choosenim-${{ matrix.nim-version}}
 
     - name: Cache nimble
       id: cache-nimble
-      uses: actions/cache@v1
+      uses: actions/cache@v4
       with:
         path: ~/.nimble
         key: ${{ runner.os }}-nimble-${{ matrix.nim-version}}-${{ hashFiles('*.nimble') }}
