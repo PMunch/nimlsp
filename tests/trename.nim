@@ -275,8 +275,55 @@ suite "Nim LSP rename functionality":
     else:
       echo "No constant rename response received"
 
+    # Test rename from the other file's perspective
+    renameRequest = create(RequestMessage, "2.0", 4, "textDocument/rename", some(
+      create(RenameParams,
+        create(TextDocumentIdentifier, "file://" & otherFile),
+        create(Position, 2, 8),  # Line 2 (0-indexed), character 8 (start of "testConstant" in other_file.nim)
+        "newConstantNameFromOtherFile"
+      ).JsonNode)
+    ).JsonNode
+    d = formFrame(renameRequest)
+    discard waitFor p.inputHandle().write(cast[pointer](d[0].addr), d.len)
+    frame = newString(2048)
+    let otherFileRenameResponseSize = waitFor p.outputHandle().readInto(frame[0].addr, 2048)
+    let otherFileRenameResponseText = frame[0..<otherFileRenameResponseSize]
+    let otherFileRenameResponseLines = otherFileRenameResponseText.split("\r\n\r\n")
+    if otherFileRenameResponseLines.len > 1:
+      let otherFileRenameResponseJson = parseJson(otherFileRenameResponseLines[1])
+      if otherFileRenameResponseJson.isValid(ResponseMessage):
+        var otherFileRenameResponse = ResponseMessage(otherFileRenameResponseJson)
+        check otherFileRenameResponse["id"].getInt == 4
+        if otherFileRenameResponse["result"].isSome:
+          let result = otherFileRenameResponse["result"].unsafeGet
+          echo "Other file rename response: ", result
+          check result.hasKey("changes")
+          check result["changes"].kind == JObject
+          let fileUri = "file://" & testFile
+          let otherFileUri = "file://" & otherFile
+          if result["changes"].hasKey(fileUri):
+            let textEdits = result["changes"][fileUri]
+            check textEdits.kind == JArray
+            check textEdits.len > 0
+            echo "Found ", textEdits.len, " text edits for rename in main file (from other file)"
+          else:
+            echo "No changes found for main file (from other file): ", fileUri
+          if result["changes"].hasKey(otherFileUri):
+            let textEdits = result["changes"][otherFileUri]
+            check textEdits.kind == JArray
+            check textEdits.len > 0
+            echo "Found ", textEdits.len, " text edits for rename in other file (from other file)"
+          else:
+            echo "No changes found for other file (from other file): ", otherFileUri
+        else:
+          echo "No result in other file rename response"
+      else:
+        echo "Invalid other file rename response: ", otherFileRenameResponseJson
+    else:
+      echo "No other file rename response received"
+
     # Shutdown
-    var shutdownRequest = create(RequestMessage, "2.0", 4, "shutdown", none(JsonNode)).JsonNode
+    var shutdownRequest = create(RequestMessage, "2.0", 5, "shutdown", none(JsonNode)).JsonNode
     d = formFrame(shutdownRequest)
     discard waitFor p.inputHandle().write(cast[pointer](d[0].addr), d.len)
     
@@ -286,4 +333,5 @@ suite "Nim LSP rename functionality":
     discard waitFor p.inputHandle().write(cast[pointer](d[0].addr), d.len)
     
     p.terminate()
+    echo "\n[NOTE] Cross-file rename: Only renaming from the usage/import file updates both files.\n      Renaming from the definition file only updates the definition file.\n      This is a current limitation of nimlsp/nimsuggest symbol resolution.\n"
     echo "Rename test completed successfully" 

@@ -3,4 +3,5 @@ author        = "Test Author"
 description   = "Test project for rename functionality"
 license       = "MIT"
 srcDir        = "."
-bin           = @["rename_test"] 
+bin           = @["rename_test"]
+requires      = "nim >= 1.0.0" 

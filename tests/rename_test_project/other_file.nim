@@ -1,4 +1,4 @@
-from rename_test import testVariable, testConstant, testFunction
+import rename_test
 
 echo testVariable
 let x = testConstant
