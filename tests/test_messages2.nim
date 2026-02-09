@@ -23,11 +23,11 @@ suite "Read RequestMessage":
     const requestMessage = """{
         "jsonrpc": "2.0",
         "id": 100,
-        "method": "something",
+        "method": "something"
     }"""
     const notificationMessage = """{
         "jsonrpc": "2.0",
-        "method": "something",
+        "method": "something"
     }"""
     test "Verify RequestMessage":
         check(parseJson(requestMessage).isValid(RequestMessage))
