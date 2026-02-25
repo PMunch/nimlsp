@@ -666,6 +666,8 @@ proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
     except CatchableError as e:
       warnLog "Got exception: ", e.msg
       continue
+    when defined(windows):
+      sleep(16)
 
 when defined(windows):
   var
