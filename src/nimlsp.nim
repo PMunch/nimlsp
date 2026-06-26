@@ -677,3 +677,4 @@ else:
     ins = newAsyncFile(stdin.getOsFileHandle().AsyncFD)
     outs = newAsyncFile(stdout.getOsFileHandle().AsyncFD)
   waitFor main(ins, outs)
+
