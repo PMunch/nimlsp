@@ -1,6 +1,7 @@
 Nim Language Server Protocol
 ============================
 
+
 This is a `Language Server Protocol
 <https://microsoft.github.io/language-server-protocol/>`_ implementation in
 Nim, for Nim.
