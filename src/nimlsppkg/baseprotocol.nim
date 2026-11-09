@@ -60,7 +60,7 @@ proc readFrame*(s: Stream | AsyncFile): Future[string] {.multisync.} =
       when defined(debugCommunication):
         frameLog(In, ln)
     elif not headerStarted:
-      continue
+      raise newException(IOError, "Input closed or missing frame header")
     else:
       when defined(debugCommunication):
         frameLog(In, ln)
