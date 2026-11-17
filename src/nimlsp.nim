@@ -1,7 +1,7 @@
 import std/[algorithm, asyncdispatch, asyncfile, hashes, os, osproc, sets,
             streams, strformat, strutils, tables, uri]
 import asynctools/asyncproc
-import nimlsppkg/[baseprotocol, logger, suggestlib, utfmapping]
+import nimlsppkg/[baseprotocol, logger, suggestlib, utfmapping, processcontrol]
 include nimlsppkg/[messages, messageenums]
 
 
@@ -218,6 +218,7 @@ proc checkVersion(outs: Stream | AsyncFile) {.multisync.} =
       await outs.notify("window/showMessage", create(ShowMessageParams, MessageType.Warning.int, message = "Current Nim version does not match the one NimLSP is built against " & version & " != " & NimVersion).JsonNode)
 
 proc main(ins: Stream | AsyncFile, outs: Stream | AsyncFile) {.multisync.} =
+  dieWithParent
   while true:
     try:
       debugLog "Trying to read frame"
